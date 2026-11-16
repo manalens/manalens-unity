@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Compile check only: the Unity layer (Runtime/Unity) and the sample against
+       UnityEngine stand-ins (UnityEngineStubs.cs). It does not run Unity code. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- CS0067: stub events that are never raised. -->
+    <NoWarn>CS0067</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="UnityEngineStubs.cs" />
+    <Compile Include="../../Runtime/Unity/**/*.cs" />
+    <Compile Include="../../Samples~/**/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../UntitledAnalytics.Core/UntitledAnalytics.Core.csproj" />
+  </ItemGroup>
+</Project>

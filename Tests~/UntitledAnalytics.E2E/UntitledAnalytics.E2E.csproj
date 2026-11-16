@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Local end-to-end runner: the Unity SDK core with a real HttpClient
+       transport and file storage. Driven by scripts/test-unity-sdk-local.mjs. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../UntitledAnalytics.Core/UntitledAnalytics.Core.csproj" />
+  </ItemGroup>
+</Project>
