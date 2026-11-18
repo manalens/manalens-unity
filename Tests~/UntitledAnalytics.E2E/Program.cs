@@ -23,11 +23,12 @@ static class Program
         static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         public readonly List<int> Statuses = new List<int>();
 
-        public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int> onComplete)
+        public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string> onComplete)
         {
             Task.Run(async () =>
             {
                 var status = 0;
+                string text = null;
                 try
                 {
                     var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
@@ -35,14 +36,18 @@ static class Program
                         if (header.Key != "Content-Type") request.Headers.TryAddWithoutValidation(header.Key, header.Value);
                     using var response = await Http.SendAsync(request);
                     status = (int)response.StatusCode;
-                    if (status >= 300) Console.Error.WriteLine($"HTTP {status}: {await response.Content.ReadAsStringAsync()}");
+                    if (status >= 300)
+                    {
+                        text = await response.Content.ReadAsStringAsync();
+                        Console.Error.WriteLine($"HTTP {status}: {text}");
+                    }
                 }
                 catch (Exception)
                 {
                     status = 0;
                 }
                 lock (Statuses) Statuses.Add(status);
-                onComplete(status);
+                onComplete(status, text);
             });
         }
     }

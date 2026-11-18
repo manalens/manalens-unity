@@ -394,6 +394,28 @@ namespace UntitledAnalytics.Tests
         }
 
         [Fact]
+        public void ARefusalLogsTheReasonOfTheCollectorAndIsNotSentAgain()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            device.Transport.Statuses.Enqueue(400);
+            device.Transport.ResponseBody = "{\"error\":{\"code\":\"INVALID_EVENT\",\"message\":\"1 of 2 events break the session ID contract. No event of the batch was accepted\",\"refused\":[{\"index\":1,\"message_id\":\"x\",\"code\":\"SESSION_ID_REQUIRED\",\"message\":\"An event with an anonymous_id needs a session_id\"}]}}";
+            client.Update();
+            Assert.Equal(0, client.QueueSize);
+            Assert.True(device.Log.Has("collector refused 2 events (HTTP 400) INVALID_EVENT, SESSION_ID_REQUIRED: 1 of 2 events break the session ID contract"), string.Join("\n", device.Log.Lines));
+            Assert.True(device.Log.Has("they are dropped"));
+            // The refused batch is gone: the next send has none of its events.
+            var sent = device.Transport.Requests.Count;
+            device.Transport.ResponseBody = null;
+            client.Track("after_refusal");
+            client.SendNow();
+            Assert.Equal(sent + 1, device.Transport.Requests.Count);
+            Assert.Equal(new[] { "after_refusal" }, device.Transport.Requests.Last().Events.Select(e => e.Name()).ToArray());
+            Assert.Equal("", AnalyticsClient.RefusalReason(null));
+            Assert.Equal("", AnalyticsClient.RefusalReason("<html>Bad Gateway</html>"));
+        }
+
+        [Fact]
         public void QueueOverMaxQueueDropsTheOldest()
         {
             var device = new Device();
@@ -481,6 +503,36 @@ namespace UntitledAnalytics.Tests
             Assert.Equal(first, end.Str("session_id"));
             Assert.Equal(0, end.Props().GetProperty("duration_s").GetInt64());
             Assert.Equal(client.SessionId, events.Last(e => e.Name() == "session_start").Str("session_id"));
+        }
+
+        [Fact]
+        public void AFocusedGameStartsANewSessionWhenTheSessionIs24HoursOld()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            var first = client.SessionId;
+            // A tick every 10 minutes for 23 hours and 50 minutes: one session.
+            for (var i = 0; i < 143; i++)
+            {
+                device.Clock.Advance(600);
+                client.Update();
+            }
+            Assert.Equal(first, client.SessionId);
+            device.Clock.Advance(600);
+            client.Update();
+            var second = client.SessionId;
+            Assert.NotEqual(first, second);
+            client.Track("after_a_day");
+            client.SendNow();
+            var events = device.Transport.AllEvents;
+            var end = events.Single(e => e.Name() == "session_end");
+            Assert.Equal(first, end.Str("session_id"));
+            Assert.Equal(86400, end.Props().GetProperty("duration_s").GetInt64());
+            Assert.Equal(2, events.Count(e => e.Name() == "session_start"));
+            Assert.Equal(second, events.Single(e => e.Name() == "after_a_day").Str("session_id"));
+            // Every event has a session ID, and it is never the anonymous ID (the collector refuses both).
+            Assert.All(events, e => Assert.False(string.IsNullOrEmpty(e.Str("session_id"))));
+            Assert.All(events, e => Assert.NotEqual(e.Str("anonymous_id"), e.Str("session_id")));
         }
 
         [Fact]

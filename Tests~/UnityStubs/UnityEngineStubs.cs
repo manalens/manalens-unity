@@ -106,7 +106,7 @@ namespace UnityEngine.Networking
 {
     public class UploadHandler : IDisposable { public void Dispose() { } }
     public sealed class UploadHandlerRaw : UploadHandler { public UploadHandlerRaw(byte[] data) { } }
-    public class DownloadHandler : IDisposable { public void Dispose() { } }
+    public class DownloadHandler : IDisposable { public string text => ""; public void Dispose() { } }
     public sealed class DownloadHandlerBuffer : DownloadHandler { }
     public sealed class UnityWebRequestAsyncOperation : AsyncOperation { }
 

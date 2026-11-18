@@ -31,13 +31,15 @@ namespace UntitledAnalyticsSdk
 
     /// <summary>
     /// Sends one HTTP POST. Call <c>onComplete</c> exactly once with the HTTP
-    /// status, or 0 for a network error (no response). The Unity transport must
+    /// status, or 0 for a network error (no response), and the response body
+    /// (or null). The SDK reads the body only to log why the collector refused
+    /// a batch. The Unity transport must
     /// be called on the main thread; the SDK sends only from Update() and from
     /// the lifecycle hooks, which run on the main thread.
     /// </summary>
     public interface ITransport
     {
-        void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int> onComplete);
+        void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string> onComplete);
     }
 
     /// <summary>Wall time (event times) and a monotonic clock (error limits).</summary>

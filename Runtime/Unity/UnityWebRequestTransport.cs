@@ -10,7 +10,7 @@ namespace UntitledAnalyticsSdk
     {
         const int TimeoutSeconds = 10;
 
-        public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int> onComplete)
+        public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string> onComplete)
         {
             var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST)
             {
@@ -33,8 +33,10 @@ namespace UntitledAnalyticsSdk
             {
                 // A connection error has no HTTP status: report 0, so the SDK keeps the batch and retries.
                 var status = request.result == UnityWebRequest.Result.ConnectionError ? 0 : (int)request.responseCode;
+                // The body of a refusal names the reason (the SDK logs it). Read it before Dispose().
+                var response = status >= 400 && status < 500 ? request.downloadHandler?.text : null;
                 request.Dispose();
-                onComplete(status);
+                onComplete(status, response);
             };
         }
     }

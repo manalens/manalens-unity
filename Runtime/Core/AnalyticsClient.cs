@@ -32,6 +32,8 @@ namespace UntitledAnalyticsSdk
         /// <summary>A copy of a state file that could not be parsed.</summary>
         public const string CorruptStateName = "untitled_analytics_state_corrupt";
         public const double SessionTimeoutSeconds = 30 * 60;
+        /// <summary>A session is never older than this. A game that stays open gets a session_end and a session_start every 24 hours.</summary>
+        public const double SessionMaxAgeSeconds = 24 * 60 * 60;
         /// <summary>The collector accepts app events up to 7 days old. Keep a margin for clock skew.</summary>
         public const double MaxEventAgeSeconds = 7 * 24 * 3600 - 3600;
         public const double MaxBackoffSeconds = 300;
@@ -568,7 +570,11 @@ namespace UntitledAnalyticsSdk
             SaveState();
         }
 
-        /// <summary>Records activity. Rotates the session after 30 minutes without activity.</summary>
+        /// <summary>
+        /// Records activity. Rotates the session after 30 minutes without
+        /// activity, and when the session is 24 hours old (the collector's
+        /// session rule does not use a client session of more than 24 hours).
+        /// </summary>
         void Touch()
         {
             var now = Now();
@@ -576,6 +582,12 @@ namespace UntitledAnalyticsSdk
             else if (now - _lastActivityAt > SessionTimeoutSeconds)
             {
                 EndSession(_lastActivityAt);
+                StartSession(now);
+            }
+            else if (now - _sessionStartedAt >= SessionMaxAgeSeconds)
+            {
+                if (_options.Debug) _log.Info("the session is 24 hours old; a new session starts");
+                EndSession(now);
                 StartSession(now);
             }
             _lastActivityAt = now;
@@ -845,13 +857,13 @@ namespace UntitledAnalyticsSdk
             var done = false;
             try
             {
-                _transport.Send(url, headers, body.ToString(), status =>
+                _transport.Send(url, headers, body.ToString(), (status, response) =>
                 {
                     lock (_gate)
                     {
                         if (done) return; // A transport must call back once; ignore extra calls.
                         done = true;
-                        OnResponse(status, ids);
+                        OnResponse(status, ids, response);
                     }
                 });
             }
@@ -861,12 +873,33 @@ namespace UntitledAnalyticsSdk
                 if (!done)
                 {
                     done = true;
-                    OnResponse(0, ids);
+                    OnResponse(0, ids, null);
                 }
             }
         }
 
-        void OnResponse(int status, HashSet<string> ids)
+        static readonly Regex RefusalCode = new Regex("\"code\"\\s*:\\s*\"([A-Z_]+)\"", RegexOptions.CultureInvariant);
+        static readonly Regex RefusalMessage = new Regex("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", RegexOptions.CultureInvariant);
+
+        /// <summary>
+        /// The reason of a refusal from the collector's response body: the
+        /// reason codes (for example INVALID_EVENT, SESSION_ID_REQUIRED) and
+        /// the first message. "" when the body has none.
+        /// </summary>
+        public static string RefusalReason(string response)
+        {
+            if (string.IsNullOrEmpty(response)) return "";
+            var codes = new List<string>();
+            foreach (Match match in RefusalCode.Matches(response))
+                if (!codes.Contains(match.Groups[1].Value)) codes.Add(match.Groups[1].Value);
+            var message = RefusalMessage.Match(response);
+            if (codes.Count == 0 && !message.Success) return "";
+            var text = string.Join(", ", codes);
+            if (message.Success) text += (text == "" ? "" : ": ") + message.Groups[1].Value;
+            return text.Length > 300 ? text.Substring(0, 300) : text;
+        }
+
+        void OnResponse(int status, HashSet<string> ids, string response)
         {
             var count = ids.Count;
             var ok = status >= 200 && status < 300;
@@ -881,7 +914,9 @@ namespace UntitledAnalyticsSdk
                 _backoffUntil = 0;
                 if (rejected)
                 {
-                    _log.Warning("collector refused " + count + " events (HTTP " + status + ")");
+                    // Dropped, not sent again: the same batch would be refused again.
+                    var reason = RefusalReason(response);
+                    _log.Warning("collector refused " + count + " events (HTTP " + status + ")" + (reason == "" ? "" : " " + reason) + "; they are dropped");
                     RaiseSendFailed(status, count);
                 }
             }

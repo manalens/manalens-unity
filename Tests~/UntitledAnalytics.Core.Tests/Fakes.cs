@@ -69,12 +69,14 @@ namespace UntitledAnalytics.Tests
         public readonly List<Request> Requests = new List<Request>();
         public readonly Queue<int> Statuses = new Queue<int>();
         public bool Manual;
+        /// <summary>The response body that each answer carries (the collector sends one with a refusal).</summary>
+        public string ResponseBody;
 
-        public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int> onComplete)
+        public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string> onComplete)
         {
-            var request = new Request { Url = url, Headers = headers, Body = body, Complete = onComplete };
+            var request = new Request { Url = url, Headers = headers, Body = body, Complete = status => onComplete(status, ResponseBody) };
             Requests.Add(request);
-            if (!Manual) onComplete(Statuses.Count > 0 ? Statuses.Dequeue() : 202);
+            if (!Manual) request.Complete(Statuses.Count > 0 ? Statuses.Dequeue() : 202);
         }
 
         public List<JsonElement> AllEvents => Requests.SelectMany(r => r.Events).ToList();
