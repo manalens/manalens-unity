@@ -77,6 +77,8 @@ namespace UntitledAnalyticsSdk
         public string Platform = "other";
         /// <summary>For example en-US. Null or empty: not sent.</summary>
         public string Locale;
+        /// <summary>The device clock's offset from UTC in minutes (480 for UTC+8). Null: not sent. Used only for install matching.</summary>
+        public int? UtcOffsetMinutes;
         /// <summary>Used when the options have no AppVersion (Unity: Application.version).</summary>
         public string DefaultAppVersion;
     }

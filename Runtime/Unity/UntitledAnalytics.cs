@@ -67,6 +67,7 @@ namespace UntitledAnalyticsSdk
             {
                 Platform = Platforms.FromRuntimePlatform(Application.platform.ToString()),
                 Locale = CurrentLocale(),
+                UtcOffsetMinutes = CurrentUtcOffsetMinutes(),
                 DefaultAppVersion = Application.version,
             };
             IStorage storage = Application.platform == RuntimePlatform.WebGLPlayer
@@ -180,6 +181,12 @@ namespace UntitledAnalyticsSdk
         }
 
         /// <summary>The system locale, for example en-US. IL2CPP builds often have only the invariant culture: then the system language.</summary>
+        static int? CurrentUtcOffsetMinutes()
+        {
+            try { return (int)Math.Round(TimeZoneInfo.Local.GetUtcOffset(DateTime.UtcNow).TotalMinutes); }
+            catch (Exception) { return null; }
+        }
+
         static string CurrentLocale()
         {
             try

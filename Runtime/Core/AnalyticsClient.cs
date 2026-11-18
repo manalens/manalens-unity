@@ -766,6 +766,13 @@ namespace UntitledAnalyticsSdk
                 sb.Append(",\"locale\":");
                 Json.WriteString(sb, Left(locale.Replace('_', '-'), 32));
             }
+            // The collector accepts -720 to 840 minutes; any other value is left out.
+            var offset = _env.UtcOffsetMinutes;
+            if (offset.HasValue && offset.Value >= -720 && offset.Value <= 840)
+            {
+                sb.Append(",\"utc_offset\":");
+                sb.Append(offset.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
             sb.Append(",\"library_name\":");
             Json.WriteString(sb, LibraryName);
             sb.Append(",\"library_version\":");

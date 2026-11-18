@@ -101,6 +101,22 @@ namespace UntitledAnalytics.Tests
 
     public class EnvelopeTests
     {
+        [Theory]
+        [InlineData(480, true)]
+        [InlineData(-300, true)]
+        [InlineData(0, true)]
+        [InlineData(841, false)]
+        [InlineData(-721, false)]
+        public void UtcOffsetIsSentOnlyInTheAcceptedRange(int minutes, bool sent)
+        {
+            var device = new Device { UtcOffsetMinutes = minutes };
+            var client = device.Launch();
+            client.Update();
+            var context = device.Transport.Requests[0].Events[0].GetProperty("context");
+            Assert.Equal(sent, context.TryGetProperty("utc_offset", out var value));
+            if (sent) Assert.Equal(minutes, value.GetInt32());
+        }
+
         [Fact]
         public void FirstLaunchSendsSessionStartAndGameOpenInTheAppEnvelope()
         {

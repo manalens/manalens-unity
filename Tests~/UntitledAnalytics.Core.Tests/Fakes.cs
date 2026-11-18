@@ -101,6 +101,8 @@ namespace UntitledAnalytics.Tests
         public ListLog Log = new ListLog();
         public int NextId;
         public bool Sequential;
+        /// <summary>The device clock's UTC offset in minutes. Null: the SDK sends none.</summary>
+        public int? UtcOffsetMinutes;
 
         public static UntitledAnalyticsOptions Options(Action<UntitledAnalyticsOptions> change = null)
         {
@@ -114,7 +116,7 @@ namespace UntitledAnalytics.Tests
         {
             Transport = new FakeTransport();
             Log = new ListLog();
-            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = "windows", Locale = "en_US", DefaultAppVersion = "1.4.0" }, Storage, Transport, Clock, Log)
+            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = "windows", Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes }, Storage, Transport, Clock, Log)
             {
                 Random = () => 0.5,
             };
