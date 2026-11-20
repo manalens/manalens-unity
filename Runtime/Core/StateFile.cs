@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// The SDK state (consent, identity, open session) as "key=value" lines
@@ -13,7 +13,7 @@ namespace UntitledAnalyticsSdk
     {
         readonly Dictionary<string, string> _values = new Dictionary<string, string>();
 
-        const string Header = "# untitled_analytics state v1";
+        const string Header = "# manalens state v1";
         const string Footer = "# end";
 
         /// <summary>

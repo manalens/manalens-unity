@@ -1,8 +1,8 @@
 using System.Linq;
-using UntitledAnalyticsSdk;
+using ManalensSdk;
 using Xunit;
 
-namespace UntitledAnalytics.Tests
+namespace Manalens.Tests
 {
     /// <summary>An opt-out must survive a lost, broken or unreadable state file (fail closed).</summary>
     public class ConsentSafetyTests
@@ -34,7 +34,7 @@ namespace UntitledAnalytics.Tests
         public void ACorruptStateAfterAnOptOutStaysOffAndIsNotOverwritten()
         {
             var device = OptedOutDevice();
-            const string broken = "# untitled_analytics state v1\nconsent.granted=fal";
+            const string broken = "# manalens state v1\nconsent.granted=fal";
             device.Storage.Blobs[AnalyticsClient.StateName] = broken;
             device.Storage.Blobs.Remove(AnalyticsClient.OptOutName); // Even without the marker.
             var client = device.Launch(Device.Options(o => o.ConsentRequired = false));
@@ -47,8 +47,8 @@ namespace UntitledAnalytics.Tests
         [Theory]
         [InlineData("")]
         [InlineData("consent.granted=true\n")] // No header: not written by this SDK.
-        [InlineData("# untitled_analytics state v1\nconsent.granted=true\n")] // No end line: cut off.
-        [InlineData("# untitled_analytics state v1\nno equals sign\n# end\n")]
+        [InlineData("# manalens state v1\nconsent.granted=true\n")] // No end line: cut off.
+        [InlineData("# manalens state v1\nno equals sign\n# end\n")]
         public void AnyUnparsableStateIsTreatedAsUnknown(string text)
         {
             var device = new Device();

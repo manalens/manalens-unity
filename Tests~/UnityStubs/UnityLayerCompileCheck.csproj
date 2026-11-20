@@ -16,6 +16,6 @@
     <Compile Include="../../Samples~/**/*.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../UntitledAnalytics.Core/UntitledAnalytics.Core.csproj" />
+    <ProjectReference Include="../Manalens.Core/Manalens.Core.csproj" />
   </ItemGroup>
 </Project>

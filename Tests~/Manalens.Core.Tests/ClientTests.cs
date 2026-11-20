@@ -4,18 +4,18 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
-using UntitledAnalyticsSdk;
+using ManalensSdk;
 using Xunit;
 
-namespace UntitledAnalytics.Tests
+namespace Manalens.Tests
 {
     public class InitTests
     {
         [Theory]
-        [InlineData("ua_sk_ERSa1DIPSRTfHDgKb3J1ZquVsyJjGwhP25biXByyey8000O0Xhz", "secret key")]
-        [InlineData("ua_api_IDjT80ncb5T2xm2I3nVPEqnbM1YPSUOZ8uZf04QDDnU002jGrpS", "API key")]
-        [InlineData("ua_mcp_dddddddddddddddddddddddddddddddd", "API key")]
-        [InlineData("ua_pk_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "malformed")]
+        [InlineData("mana_sk_ERSa1DIPSRTfHDgKb3J1ZquVsyJjGwhP25biXByyey8003IFfdW", "secret key")]
+        [InlineData("mana_api_IDjT80ncb5T2xm2I3nVPEqnbM1YPSUOZ8uZf04QDDnU001oS2MK", "API key")]
+        [InlineData("ua_cccccccccccccccccccccccccccccccc", "must start with mana_pk_")]
+        [InlineData("mana_pk_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "malformed")]
         [InlineData("", "required")]
         public void RefusesKeysThatAreNotPublishable(string key, string reason)
         {
@@ -31,12 +31,12 @@ namespace UntitledAnalytics.Tests
         }
 
         [Fact]
-        public void AcceptsANewPublishableKeyAndALegacyKey()
+        public void AcceptsOnlyAPublishableKeyWithAChecksum()
         {
             Assert.Null(Keys.PublishableKeyRefusal(Device.Key));
-            Assert.Null(Keys.PublishableKeyRefusal("ua_" + new string('c', 32)));
+            Assert.NotNull(Keys.PublishableKeyRefusal("ua_" + new string('c', 32)));
             // The checksum is the same as packages/shared/src/keys.ts (CRC32, base62).
-            Assert.Equal("002rW9AS", Keys.Checksum(Device.Key.Substring(0, Device.Key.Length - 8)));
+            Assert.Equal("0014X8oL", Keys.Checksum(Device.Key.Substring(0, Device.Key.Length - 8)));
             Assert.NotNull(Keys.PublishableKeyRefusal(Device.Key.Substring(0, Device.Key.Length - 1) + "T"));
         }
 
@@ -141,7 +141,7 @@ namespace UntitledAnalytics.Tests
                 var context = e.GetProperty("context");
                 Assert.Equal(new[] { "app", "library_name", "library_version", "locale" }, context.EnumerateObject().Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal).ToArray());
                 Assert.Equal("en-US", context.Str("locale"));
-                Assert.Equal("Untitled Analytics Unity SDK", context.Str("library_name"));
+                Assert.Equal("Manalens Unity SDK", context.Str("library_name"));
                 var app = context.GetProperty("app");
                 Assert.Equal("windows", app.Str("platform"));
                 Assert.Equal("unity", app.Str("engine"));
@@ -282,9 +282,9 @@ namespace UntitledAnalytics.Tests
             var device = new Device();
             var client = device.Launch();
             var id = client.AnonymousId;
-            Assert.Equal($"https://example.com/wiki?ua_hid={id}.1800000000", client.LinkUrl("https://example.com/wiki"));
-            Assert.Equal($"https://example.com/wiki?a=1&ua_hid={id}.1800000000#top", client.LinkUrl("https://example.com/wiki?a=1#top"));
-            Assert.Equal($"https://example.com/?ua_hid={id}.1800000000", client.LinkUrl("https://example.com/?"));
+            Assert.Equal($"https://example.com/wiki?mana_hid={id}.1800000000", client.LinkUrl("https://example.com/wiki"));
+            Assert.Equal($"https://example.com/wiki?a=1&mana_hid={id}.1800000000#top", client.LinkUrl("https://example.com/wiki?a=1#top"));
+            Assert.Equal($"https://example.com/?mana_hid={id}.1800000000", client.LinkUrl("https://example.com/?"));
         }
     }
 
@@ -798,7 +798,7 @@ namespace UntitledAnalytics.Tests
             var device = new Device();
             var client = device.Launch();
             client.CaptureLog("Low memory", "", LogKind.Warning);
-            client.CaptureLog("UntitledAnalytics: could not write", "", LogKind.Error);
+            client.CaptureLog("Manalens: could not write", "", LogKind.Error);
             client.Update();
             Assert.DoesNotContain("error", device.Transport.Names);
 

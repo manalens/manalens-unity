@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// Stores named text blobs (the state and the queue). The Unity layer uses

@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// The engine-independent SDK: envelopes, identity, sessions, the offline
@@ -19,18 +19,18 @@ namespace UntitledAnalyticsSdk
     /// </summary>
     public sealed class AnalyticsClient
     {
-        public const string LibraryName = "Untitled Analytics Unity SDK";
+        public const string LibraryName = "Manalens Unity SDK";
         public const string LibraryVersion = "0.1.0";
         public const string Engine = "unity";
-        public const string StateName = "untitled_analytics_state";
-        public const string QueueName = "untitled_analytics_queue";
+        public const string StateName = "manalens_state";
+        public const string QueueName = "manalens_queue";
         /// <summary>
         /// Exists while the player has withdrawn consent. Checked apart from the
         /// state, so a lost or broken state file cannot undo an opt-out.
         /// </summary>
-        public const string OptOutName = "untitled_analytics_optout";
+        public const string OptOutName = "manalens_optout";
         /// <summary>A copy of a state file that could not be parsed.</summary>
-        public const string CorruptStateName = "untitled_analytics_state_corrupt";
+        public const string CorruptStateName = "manalens_state_corrupt";
         public const double SessionTimeoutSeconds = 30 * 60;
         /// <summary>A session is never older than this. A game that stays open gets a session_end and a session_start every 24 hours.</summary>
         public const double SessionMaxAgeSeconds = 24 * 60 * 60;
@@ -38,7 +38,7 @@ namespace UntitledAnalyticsSdk
         public const double MaxEventAgeSeconds = 7 * 24 * 3600 - 3600;
         public const double MaxBackoffSeconds = 300;
         /// <summary>Identity handoff: the URL parameter that the web SDK reads.</summary>
-        public const string HandoffParam = "ua_hid";
+        public const string HandoffParam = "mana_hid";
         public static readonly string[] Storefronts = { "steam", "itch", "epic", "gog", "app_store", "play", "other" };
         public static readonly string[] Severities = { "debug", "info", "warning", "error", "critical" };
         /// <summary>Error limits (as the Godot SDK and Sentry): one fingerprint at most once a second, at most 20 errors in 10 seconds.</summary>
@@ -51,7 +51,7 @@ namespace UntitledAnalyticsSdk
         public const int BreadcrumbCount = 20;
         /// <summary>The collector keeps string properties up to 1024 characters.</summary>
         public const int MaxString = 1024;
-        const string LogPrefix = "UntitledAnalytics:";
+        const string LogPrefix = "Manalens:";
         static readonly Regex LabelRe = new Regex("^[A-Za-z0-9._+\\- ]+$", RegexOptions.CultureInvariant);
 
         /// <summary>After each send: the number of events sent (0 when it failed) and whether it succeeded.</summary>
@@ -65,7 +65,7 @@ namespace UntitledAnalyticsSdk
 
         readonly object _gate = new object();
         readonly object _logGate = new object();
-        readonly UntitledAnalyticsOptions _options;
+        readonly ManalensOptions _options;
         readonly AppEnvironment _env;
         readonly IStorage _storage;
         readonly ITransport _transport;
@@ -113,7 +113,7 @@ namespace UntitledAnalyticsSdk
             public LogKind Kind;
         }
 
-        public AnalyticsClient(UntitledAnalyticsOptions options, AppEnvironment environment, IStorage storage, ITransport transport, IClock clock = null, ILog log = null)
+        public AnalyticsClient(ManalensOptions options, AppEnvironment environment, IStorage storage, ITransport transport, IClock clock = null, ILog log = null)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
             _env = environment ?? new AppEnvironment();
@@ -156,7 +156,7 @@ namespace UntitledAnalyticsSdk
                     _log.Error("PublishableKey and Endpoint are required");
                     return false;
                 }
-                // A secret key (ua_sk_) or an API key (ua_api_, ua_mcp_) must never ship in a game build.
+                // Only a publishable key (mana_pk_) may ship in a game build: never a secret key or an API key.
                 var refusal = Keys.PublishableKeyRefusal(key);
                 if (refusal != null)
                 {
@@ -432,7 +432,7 @@ namespace UntitledAnalyticsSdk
         }
 
         /// <summary>
-        /// Adds this install's handoff parameter (ua_hid=&lt;anonymous ID&gt;.&lt;unix seconds&gt;)
+        /// Adds this install's handoff parameter (mana_hid=&lt;anonymous ID&gt;.&lt;unix seconds&gt;)
         /// to a website URL, so the website joins the browser to this player.
         /// Before consent (or before Init) the URL is returned unchanged.
         /// </summary>
@@ -467,7 +467,7 @@ namespace UntitledAnalyticsSdk
         public bool IsSending { get { lock (_gate) return _sending; } }
         /// <summary>No request in flight, and nothing to send now (empty queue, or waiting after a failure).</summary>
         public bool IsIdle { get { lock (_gate) return !_sending && (_queue.Count == 0 || Now() < _backoffUntil || !_identityActive); } }
-        public UntitledAnalyticsOptions Options => _options;
+        public ManalensOptions Options => _options;
 
         // Identity and sessions ----------------------------------------------
 

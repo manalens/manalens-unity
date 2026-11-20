@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
-    /// <summary>Options for UntitledAnalytics.Init(). PublishableKey and Endpoint are required.</summary>
-    public sealed class UntitledAnalyticsOptions
+    /// <summary>Options for Manalens.Init(). PublishableKey and Endpoint are required.</summary>
+    public sealed class ManalensOptions
     {
-        /// <summary>The project publishable key (ua_pk_...). Never a secret key or an API key.</summary>
+        /// <summary>The project publishable key (mana_pk_...). Never a secret key or an API key.</summary>
         public string PublishableKey = "";
         /// <summary>The collector URL, without /v0/events.</summary>
         public string Endpoint = "";

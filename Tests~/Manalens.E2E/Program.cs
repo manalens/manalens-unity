@@ -1,9 +1,9 @@
 // One "game launch" against a real collector. Each mode is one process, so a
 // mode can end without OnQuit() to act as a crash. Prints one line:
-//   UA_RESULT {"ok":true,"anonymous_id":"...","failures":[]}
+//   MANALENS_RESULT {"ok":true,"anonymous_id":"...","failures":[]}
 //
-//   dotnet run --project "sdks/unity/Tests~/UntitledAnalytics.E2E" -- \
-//     --endpoint=http://127.0.0.1:3293 --publishable-key=ua_pk_... --mode=offline \
+//   dotnet run --project "sdks/unity/Tests~/Manalens.E2E" -- \
+//     --endpoint=http://127.0.0.1:3293 --publishable-key=mana_pk_... --mode=offline \
 //     --run-id=unity-1 --data-dir=/tmp/ua-unity/offline
 using System;
 using System.Collections.Generic;
@@ -14,7 +14,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using UntitledAnalyticsSdk;
+using ManalensSdk;
 
 static class Program
 {
@@ -55,7 +55,7 @@ static class Program
     sealed class ConsoleLog : ILog
     {
         public readonly List<string> Lines = new List<string>();
-        void Add(string line) { lock (Lines) Lines.Add(line); Console.Error.WriteLine("UntitledAnalytics: " + line); }
+        void Add(string line) { lock (Lines) Lines.Add(line); Console.Error.WriteLine("Manalens: " + line); }
         public void Info(string message) => Add("info " + message);
         public void Warning(string message) => Add("warning " + message);
         public void Error(string message) => Add("error " + message);
@@ -76,9 +76,9 @@ static class Program
         var transport = new HttpTransport();
         var log = new ConsoleLog();
         var env = new AppEnvironment { Platform = OperatingSystem.IsMacOS() ? "macos" : OperatingSystem.IsWindows() ? "windows" : "linux", Locale = "en-US", DefaultAppVersion = "0.1.0-test" };
-        AnalyticsClient Make(Action<UntitledAnalyticsOptions> change = null)
+        AnalyticsClient Make(Action<ManalensOptions> change = null)
         {
-            var options = new UntitledAnalyticsOptions { PublishableKey = key, Endpoint = endpoint, Build = "unity-test", Storefront = "itch", Debug = false };
+            var options = new ManalensOptions { PublishableKey = key, Endpoint = endpoint, Build = "unity-test", Storefront = "itch", Debug = false };
             change?.Invoke(options);
             return new AnalyticsClient(options, env, new FileStorage(dataDir, log), transport, new SystemClock(), log);
         }
@@ -236,7 +236,7 @@ static class Program
         lock (transport.Statuses) result["statuses"] = transport.Statuses.ToArray();
         result["failures"] = Failures;
         result["ok"] = Failures.Count == 0;
-        Console.WriteLine("UA_RESULT " + JsonSerializer.Serialize(result));
+        Console.WriteLine("MANALENS_RESULT " + JsonSerializer.Serialize(result));
         return Failures.Count == 0 ? 0 : 1;
     }
 }

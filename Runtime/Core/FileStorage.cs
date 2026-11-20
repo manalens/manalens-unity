@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// Stores each blob as a file in one folder (Unity: Application.persistentDataPath).

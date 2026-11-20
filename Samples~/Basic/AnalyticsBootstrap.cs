@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UntitledAnalyticsSdk;
+using ManalensSdk;
 
 /// <summary>
 /// Add this component to a GameObject in your first scene. Fill in the
@@ -9,7 +9,7 @@ using UntitledAnalyticsSdk;
 /// </summary>
 public class AnalyticsBootstrap : MonoBehaviour
 {
-    [Tooltip("The project's Publishable key (ua_pk_...). Never a secret key or an API key.")]
+    [Tooltip("The project's Publishable key (mana_pk_...). Never a secret key or an API key.")]
     public string publishableKey = "YOUR_PUBLISHABLE_KEY";
 
     [Tooltip("The collector URL, without /v0/events.")]
@@ -25,8 +25,8 @@ public class AnalyticsBootstrap : MonoBehaviour
 
     void Awake()
     {
-        UntitledAnalytics.SendFailed += (status, dropped) => Debug.LogWarning($"Analytics dropped {dropped} events (HTTP {status})");
-        UntitledAnalytics.Init(new UntitledAnalyticsOptions
+        Manalens.SendFailed += (status, dropped) => Debug.LogWarning($"Analytics dropped {dropped} events (HTTP {status})");
+        Manalens.Init(new ManalensOptions
         {
             PublishableKey = publishableKey,
             Endpoint = endpoint,
@@ -39,12 +39,12 @@ public class AnalyticsBootstrap : MonoBehaviour
 
     void Start()
     {
-        UntitledAnalytics.Track("level_start", new Dictionary<string, object> { ["level"] = 1, ["mode"] = "story" });
+        Manalens.Track("level_start", new Dictionary<string, object> { ["level"] = 1, ["mode"] = "story" });
     }
 
     /// <summary>Call from a UI button: opens your website and joins the browser to this player.</summary>
     public void OpenWiki()
     {
-        Application.OpenURL(UntitledAnalytics.LinkUrl("https://example.com/wiki"));
+        Application.OpenURL(Manalens.LinkUrl("https://example.com/wiki"));
     }
 }

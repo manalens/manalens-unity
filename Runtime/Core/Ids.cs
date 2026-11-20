@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     public static class Ids
     {

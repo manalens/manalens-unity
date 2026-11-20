@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Untitled Analytics
+Copyright (c) 2026 Manalens
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

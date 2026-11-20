@@ -19,13 +19,13 @@ The SDK lives in the Manalens monorepo for now. It moves to its own public repos
 ```csharp
 using System.Collections.Generic;
 using UnityEngine;
-using UntitledAnalyticsSdk;
+using ManalensSdk;
 
 public class Analytics : MonoBehaviour
 {
     void Awake()
     {
-        UntitledAnalytics.Init(new UntitledAnalyticsOptions
+        Manalens.Init(new ManalensOptions
         {
             PublishableKey = "YOUR_PUBLISHABLE_KEY",
             Endpoint = "https://YOUR_COLLECTOR_ENDPOINT",
@@ -37,9 +37,9 @@ public class Analytics : MonoBehaviour
 }
 
 // Anywhere in your game:
-UntitledAnalytics.Track("level_complete", new Dictionary<string, object> { ["level"] = 3, ["score"] = 1200 });
-UntitledAnalytics.Identify("player_42");
-UntitledAnalytics.TrackError("Save failed", new TrackErrorOptions { ErrorType = "SaveFailed", Severity = "critical" });
+Manalens.Track("level_complete", new Dictionary<string, object> { ["level"] = 3, ["score"] = 1200 });
+Manalens.Identify("player_42");
+Manalens.TrackError("Save failed", new TrackErrorOptions { ErrorType = "SaveFailed", Severity = "critical" });
 ```
 
 The SDK sends `game_open`, `session_start`, `session_end`, captured exceptions and `app_unclean_exit` (after a crash) for you.
@@ -47,7 +47,7 @@ The SDK sends `game_open`, `session_start`, `session_end`, captured exceptions a
 ## Layout
 
 - `Runtime/Core`: the engine-independent SDK (no UnityEngine reference): envelopes, identity, sessions, queue, retries, consent, errors.
-- `Runtime/Unity`: the Unity layer: the `UntitledAnalytics` static API, a hidden MonoBehaviour (Update, focus, pause, quit, log capture), UnityWebRequest and PlayerPrefs.
+- `Runtime/Unity`: the Unity layer: the `Manalens` static API, a hidden MonoBehaviour (Update, focus, pause, quit, log capture), UnityWebRequest and PlayerPrefs.
 - `Samples~/Basic`: a bootstrap component.
 - `Tests~`: .NET projects that build and test the core outside Unity (`dotnet test`), fixtures and a local end-to-end runner. Unity does not import folders that end in `~`.
 

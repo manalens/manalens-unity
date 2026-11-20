@@ -8,6 +8,6 @@
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../UntitledAnalytics.Core/UntitledAnalytics.Core.csproj" />
+    <ProjectReference Include="../Manalens.Core/Manalens.Core.csproj" />
   </ItemGroup>
 </Project>

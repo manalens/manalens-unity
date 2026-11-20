@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using UntitledAnalyticsSdk;
+using ManalensSdk;
 using Xunit;
 
-namespace UntitledAnalytics.Tests
+namespace Manalens.Tests
 {
     /// <summary>
     /// The contract with the collector. A fixed clock and fixed IDs make the

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// A small JSON writer (no dependencies; JsonUtility cannot write

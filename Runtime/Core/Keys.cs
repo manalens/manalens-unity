@@ -1,4 +1,4 @@
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// Key rules, the same as packages/shared/src/keys.ts in the collector. A
@@ -6,10 +6,9 @@ namespace UntitledAnalyticsSdk
     /// </summary>
     public static class Keys
     {
-        public const string PublishablePrefix = "ua_pk_";
-        public const string SecretPrefix = "ua_sk_";
-        public const string ApiPrefix = "ua_api_";
-        public const string LegacyApiPrefix = "ua_mcp_";
+        public const string PublishablePrefix = "mana_pk_";
+        public const string SecretPrefix = "mana_sk_";
+        public const string ApiPrefix = "mana_api_";
         const int BodyLength = 43;
         const int ChecksumLength = 8;
         const string Base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -20,10 +19,12 @@ namespace UntitledAnalyticsSdk
         {
             if (string.IsNullOrEmpty(key)) return "PublishableKey is required";
             if (key.StartsWith(SecretPrefix, System.StringComparison.Ordinal))
-                return "this is a secret key (ua_sk_). Never put a secret key in a game build; use the publishable key (ua_pk_...)";
-            if (key.StartsWith(ApiPrefix, System.StringComparison.Ordinal) || key.StartsWith(LegacyApiPrefix, System.StringComparison.Ordinal))
-                return "this is an API key. Never put an API key in a game build; use the publishable key (ua_pk_...)";
-            if (key.StartsWith(PublishablePrefix, System.StringComparison.Ordinal) && !IsWellFormedNewKey(key, PublishablePrefix))
+                return "this is a secret key (mana_sk_). Never put a secret key in a game build; use the publishable key (mana_pk_...)";
+            if (key.StartsWith(ApiPrefix, System.StringComparison.Ordinal))
+                return "this is an API key. Never put an API key in a game build; use the publishable key (mana_pk_...)";
+            if (!key.StartsWith(PublishablePrefix, System.StringComparison.Ordinal))
+                return "not a publishable key: it must start with mana_pk_";
+            if (!IsWellFormedNewKey(key, PublishablePrefix))
                 return "malformed publishable key (check that you copied all of it)";
             return null;
         }

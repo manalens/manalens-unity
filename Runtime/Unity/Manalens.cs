@@ -6,25 +6,25 @@ using System.Threading;
 using UnityEngine;
 using UnityEngine.Scripting;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// Manalens for Unity. Sends game events to POST {endpoint}/v0/events
     /// with the project publishable key, the same envelope as the web and Godot
     /// SDKs, and context.app in place of context.page.
     ///
-    ///   UntitledAnalytics.Init(new UntitledAnalyticsOptions {
-    ///       PublishableKey = "ua_pk_...",
+    ///   Manalens.Init(new ManalensOptions {
+    ///       PublishableKey = "mana_pk_...",
     ///       Endpoint = "https://collector.example.com",
     ///       Build = "571", Storefront = "steam",
     ///       Enabled = !Application.isEditor,
     ///   });
-    ///   UntitledAnalytics.Track("level_complete", new Dictionary&lt;string, object&gt; { ["level"] = 3 });
+    ///   Manalens.Track("level_complete", new Dictionary&lt;string, object&gt; { ["level"] = 3 });
     /// </summary>
-    public static class UntitledAnalytics
+    public static class Manalens
     {
         static AnalyticsClient _client;
-        static UntitledAnalyticsDriver _driver;
+        static ManalensDriver _driver;
         static int _mainThreadId = -1;
         static readonly ILog Log = new UnityLog();
 
@@ -55,7 +55,7 @@ namespace UntitledAnalyticsSdk
         /// your first scene. Returns false (and logs why) when the options are
         /// wrong, for example a missing endpoint or a secret key.
         /// </summary>
-        public static bool Init(UntitledAnalyticsOptions options)
+        public static bool Init(ManalensOptions options)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (_client != null)
@@ -80,9 +80,9 @@ namespace UntitledAnalyticsSdk
             _client = client;
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
             if (client.IsDisabled) return true;
-            var host = new GameObject("UntitledAnalytics") { hideFlags = HideFlags.HideInHierarchy };
+            var host = new GameObject("Manalens") { hideFlags = HideFlags.HideInHierarchy };
             UnityEngine.Object.DontDestroyOnLoad(host);
-            _driver = host.AddComponent<UntitledAnalyticsDriver>();
+            _driver = host.AddComponent<ManalensDriver>();
             _driver.Client = client;
             return true;
         }
@@ -140,7 +140,7 @@ namespace UntitledAnalyticsSdk
         /// <summary>
         /// Ends the session and sends the queue for at most QuitTimeoutSeconds.
         /// Use it before your own quit when HandleQuit is false:
-        /// <c>yield return UntitledAnalytics.Shutdown(); Application.Quit();</c>
+        /// <c>yield return Manalens.Shutdown(); Application.Quit();</c>
         /// Unsent events stay on disk for the next launch.
         /// </summary>
         public static IEnumerator Shutdown()
@@ -157,7 +157,7 @@ namespace UntitledAnalyticsSdk
         /// <summary>
         /// Adds this install's handoff parameter to a website URL before the game
         /// opens it, so the website joins the browser to this player:
-        /// <c>Application.OpenURL(UntitledAnalytics.LinkUrl("https://example.com/wiki"));</c>
+        /// <c>Application.OpenURL(Manalens.LinkUrl("https://example.com/wiki"));</c>
         /// Before consent (or before Init) the URL is returned unchanged.
         /// </summary>
         public static string LinkUrl(string url) => _client != null ? _client.LinkUrl(url) : url;

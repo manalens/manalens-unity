@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// WebGL storage: PlayerPrefs, which Unity keeps in the browser's IndexedDB.

@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using UntitledAnalyticsSdk;
+using ManalensSdk;
 using Xunit;
 
-namespace UntitledAnalytics.Tests
+namespace Manalens.Tests
 {
     sealed class FakeClock : IClock
     {
@@ -95,7 +95,7 @@ namespace UntitledAnalytics.Tests
     /// <summary>One device: storage and clock survive between launches.</summary>
     sealed class Device
     {
-        public const string Key = "ua_pk_Xq34DFmqwql9UbVhRvCnPASQmrMmmnP0rqp8NEcPtXu002rW9AS";
+        public const string Key = "mana_pk_Xq34DFmqwql9UbVhRvCnPASQmrMmmnP0rqp8NEcPtXu0014X8oL";
         public const string Endpoint = "https://collect.example.com";
         public readonly MemoryStorage Storage = new MemoryStorage();
         public readonly FakeClock Clock = new FakeClock();
@@ -106,15 +106,15 @@ namespace UntitledAnalytics.Tests
         /// <summary>The device clock's UTC offset in minutes. Null: the SDK sends none.</summary>
         public int? UtcOffsetMinutes;
 
-        public static UntitledAnalyticsOptions Options(Action<UntitledAnalyticsOptions> change = null)
+        public static ManalensOptions Options(Action<ManalensOptions> change = null)
         {
-            var options = new UntitledAnalyticsOptions { PublishableKey = Key, Endpoint = Endpoint, Build = "571", Storefront = "steam", FlushIntervalSeconds = 10 };
+            var options = new ManalensOptions { PublishableKey = Key, Endpoint = Endpoint, Build = "571", Storefront = "steam", FlushIntervalSeconds = 10 };
             change?.Invoke(options);
             return options;
         }
 
         /// <summary>A new process on this device.</summary>
-        public AnalyticsClient Launch(UntitledAnalyticsOptions options = null, bool init = true)
+        public AnalyticsClient Launch(ManalensOptions options = null, bool init = true)
         {
             Transport = new FakeTransport();
             Log = new ListLog();

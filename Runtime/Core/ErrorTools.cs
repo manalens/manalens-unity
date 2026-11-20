@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>The first game frame of a stack trace.</summary>
     public sealed class StackFrameInfo
@@ -31,7 +31,7 @@ namespace UntitledAnalyticsSdk
         static readonly string[] SkippedFrames =
         {
             "UnityEngine.Debug", "UnityEngine.Logger", "UnityEngine.DebugLogHandler", "UnityEngine.Assertions.",
-            "UnityEngine.StackTraceUtility", "UntitledAnalyticsSdk.",
+            "UnityEngine.StackTraceUtility", "ManalensSdk.",
         };
 
         /// <summary>

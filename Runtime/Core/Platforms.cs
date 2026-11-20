@@ -1,4 +1,4 @@
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     public static class Platforms
     {

@@ -1,7 +1,9 @@
 {
-    "name": "UntitledAnalytics.Core",
-    "rootNamespace": "UntitledAnalyticsSdk",
-    "references": [],
+    "name": "Manalens",
+    "rootNamespace": "ManalensSdk",
+    "references": [
+        "Manalens.Core"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -10,5 +12,5 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": true
+    "noEngineReferences": false
 }

@@ -1,5 +1,5 @@
 {
-  "name": "com.untitledanalytics.sdk",
+  "name": "dev.manalens.sdk",
   "version": "0.1.0",
   "displayName": "Manalens",
   "description": "Game analytics for Unity: sessions, launches, game events, errors and crashes, sent to Manalens with the project publishable key. Offline queue, batching, retries and a consent mode. No dependencies.",

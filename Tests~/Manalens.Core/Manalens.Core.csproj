@@ -7,7 +7,7 @@
     <Nullable>disable</Nullable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <AssemblyName>UntitledAnalytics.Core</AssemblyName>
+    <AssemblyName>Manalens.Core</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Runtime/Core/**/*.cs" />

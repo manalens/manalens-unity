@@ -26,7 +26,7 @@ export function importedPaths(folder = packageRoot) {
   return out;
 }
 
-const guid = path => createHash('md5').update(`com.untitledanalytics.sdk/${path}`).digest('hex');
+const guid = path => createHash('md5').update(`dev.manalens.sdk/${path}`).digest('hex');
 
 function importer(path) {
   if (statSync(join(packageRoot, path)).isDirectory()) return 'folderAsset: yes\nDefaultImporter:\n  externalObjects: {}\n  userData: \n  assetBundleName: \n  assetBundleVariant: \n';

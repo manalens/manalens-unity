@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEngine.Networking;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>POST with UnityWebRequest. Main thread only (the SDK sends from Update and the lifecycle hooks).</summary>
     internal sealed class UnityWebRequestTransport : ITransport

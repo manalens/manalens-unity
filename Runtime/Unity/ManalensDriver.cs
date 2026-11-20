@@ -1,14 +1,14 @@
 using System.Collections;
 using UnityEngine;
 
-namespace UntitledAnalyticsSdk
+namespace ManalensSdk
 {
     /// <summary>
     /// The hidden GameObject that drives the SDK: Update, focus and pause,
-    /// quit, and the engine log capture. UntitledAnalytics.Init() creates it.
+    /// quit, and the engine log capture. Manalens.Init() creates it.
     /// </summary>
     [AddComponentMenu("")]
-    internal sealed class UntitledAnalyticsDriver : MonoBehaviour
+    internal sealed class ManalensDriver : MonoBehaviour
     {
         internal AnalyticsClient Client;
         bool _closing;
