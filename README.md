@@ -9,7 +9,7 @@ Full guide: `docs/sdks/unity.mdx` in the Untitled Analytics repository.
 In Unity, open **Window > Package Manager**, click **+**, choose **Add package from git URL** and enter:
 
 ```
-https://github.com/yosriady/untitled-analytics.git?path=sdks/unity
+https://github.com/manalens/manalens.git?path=sdks/unity
 ```
 
 The SDK lives in the Untitled Analytics monorepo for now. It moves to its own public repository when it is published.
