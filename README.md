@@ -1,8 +1,8 @@
-# Untitled Analytics for Unity
+# ManaLens for Unity
 
 Game analytics for Unity 2021.3 or later: sessions, launches, game events, errors and crashes. The SDK sends app events (`docs/sdks/app-events.mdx`) to `POST {endpoint}/v0/events` with your project's publishable key. It has no dependencies and works on Windows, macOS, Linux, Android, iOS and WebGL.
 
-Full guide: `docs/sdks/unity.mdx` in the Untitled Analytics repository.
+Full guide: `docs/sdks/unity.mdx` in the ManaLens repository.
 
 ## Install
 
@@ -12,7 +12,7 @@ In Unity, open **Window > Package Manager**, click **+**, choose **Add package f
 https://github.com/manalens/manalens.git?path=sdks/unity
 ```
 
-The SDK lives in the Untitled Analytics monorepo for now. It moves to its own public repository when it is published.
+The SDK lives in the ManaLens monorepo for now. It moves to its own public repository when it is published.
 
 ## Start
 
