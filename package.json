@@ -1,12 +1,12 @@
 {
   "name": "com.untitledanalytics.sdk",
   "version": "0.1.0",
-  "displayName": "ManaLens",
-  "description": "Game analytics for Unity: sessions, launches, game events, errors and crashes, sent to ManaLens with the project publishable key. Offline queue, batching, retries and a consent mode. No dependencies.",
+  "displayName": "Manalens",
+  "description": "Game analytics for Unity: sessions, launches, game events, errors and crashes, sent to Manalens with the project publishable key. Offline queue, batching, retries and a consent mode. No dependencies.",
   "unity": "2021.3",
   "license": "MIT",
   "author": {
-    "name": "ManaLens"
+    "name": "Manalens"
   },
   "keywords": [
     "analytics",

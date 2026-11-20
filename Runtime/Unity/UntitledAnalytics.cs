@@ -9,7 +9,7 @@ using UnityEngine.Scripting;
 namespace UntitledAnalyticsSdk
 {
     /// <summary>
-    /// ManaLens for Unity. Sends game events to POST {endpoint}/v0/events
+    /// Manalens for Unity. Sends game events to POST {endpoint}/v0/events
     /// with the project publishable key, the same envelope as the web and Godot
     /// SDKs, and context.app in place of context.page.
     ///
