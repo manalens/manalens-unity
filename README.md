@@ -6,13 +6,9 @@ Full guide: `docs/sdks/unity.mdx` in the Manalens repository.
 
 ## Install
 
-In Unity, open **Window > Package Manager**, click **+**, choose **Add package from git URL** and enter:
+In Unity, open **Window > Package Manager**, click **+**, choose **Add package from tarball** and pick the `.tgz` file (or **Add package from disk** for a folder).
 
-```
-https://github.com/manalens/manalens.git?path=sdks/unity
-```
-
-The SDK lives in the Manalens monorepo for now. It moves to its own public repository when it is published.
+During early access the package is available on request from support@manalens.dev. The SDK lives in the private Manalens repository for now, so there is no public git URL. It moves to its own public repository when it is published (P-2481).
 
 ## Start
 
