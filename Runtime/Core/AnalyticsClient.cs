@@ -51,6 +51,10 @@ namespace ManalensSdk
         public const int BreadcrumbCount = 20;
         /// <summary>The collector keeps string properties up to 1024 characters.</summary>
         public const int MaxString = 1024;
+        /// <summary>The collector refuses properties or traits with more keys (P-2700).</summary>
+        public const int MaxPropertyKeys = 50;
+        /// <summary>The collector refuses properties or traits whose JSON has more UTF-8 bytes (P-2700).</summary>
+        public const int MaxPropertyBytes = 8 * 1024;
         const string LogPrefix = "Manalens:";
         static readonly Regex LabelRe = new Regex("^[A-Za-z0-9._+\\- ]+$", RegexOptions.CultureInvariant);
 
@@ -714,6 +718,8 @@ namespace ManalensSdk
 
         QueueEntry Build(string type, string eventName, Dictionary<string, object> properties, double at, Dictionary<string, object> traits = null)
         {
+            properties = Fit(properties, "properties");
+            if (traits != null) traits = Fit(traits, "traits");
             var when = at < 0 ? Now() : at;
             var messageId = NewId();
             var sb = new StringBuilder(512);
@@ -1019,7 +1025,8 @@ namespace ManalensSdk
             var errorType = Left(options.ErrorType ?? "", 128);
             var file = Left(options.File ?? "", 256);
             var function = Left(options.Function ?? "", 256);
-            var props = Scalars(options.Properties);
+            // The error's own keys come first, so a trim to the limits (Fit) drops custom keys first.
+            var props = new Dictionary<string, object>();
             props["severity"] = severity;
             props["message"] = Left(message, MaxString);
             props["handled"] = options.Handled;
@@ -1041,6 +1048,8 @@ namespace ManalensSdk
                 var crumbs = string.Join(",", _breadcrumbs);
                 props["breadcrumbs"] = crumbs.Length > MaxString ? crumbs.Substring(crumbs.Length - MaxString) : crumbs;
             }
+            foreach (var pair in Scalars(options.Properties))
+                if (!props.ContainsKey(pair.Key)) props[pair.Key] = pair.Value;
             if (!ErrorAllowed(fingerprint, source))
             {
                 _errorsDropped++;
@@ -1134,6 +1143,35 @@ namespace ManalensSdk
                 }
             }
             return output;
+        }
+
+        /// <summary>
+        /// Keeps keys in order while the object has at most MaxPropertyKeys keys
+        /// and MaxPropertyBytes of JSON. The collector refuses a whole batch for
+        /// one event over a limit, so the SDK drops the extra keys with a warning.
+        /// </summary>
+        Dictionary<string, object> Fit(Dictionary<string, object> values, string field)
+        {
+            if (values == null || (values.Count <= MaxPropertyKeys && JsonBytes(values) <= MaxPropertyBytes)) return values;
+            var output = new Dictionary<string, object>();
+            var bytes = 2; // {}
+            foreach (var pair in values)
+            {
+                if (output.Count >= MaxPropertyKeys) break;
+                var entry = JsonBytes(new[] { pair }) - 2 + (output.Count > 0 ? 1 : 0);
+                if (bytes + entry > MaxPropertyBytes) break;
+                output[pair.Key] = pair.Value;
+                bytes += entry;
+            }
+            _log.Warning(field + " over the limit of " + MaxPropertyKeys + " keys or " + MaxPropertyBytes + " bytes; " + (values.Count - output.Count) + " keys dropped");
+            return output;
+        }
+
+        static int JsonBytes(IEnumerable<KeyValuePair<string, object>> values)
+        {
+            var sb = new StringBuilder();
+            Json.WriteObject(sb, values);
+            return Encoding.UTF8.GetByteCount(sb.ToString());
         }
 
         string CheckLabel(string name, string value, int maxLength, bool warn)

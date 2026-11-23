@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using ManalensSdk;
@@ -209,6 +210,28 @@ namespace Manalens.Tests
             Assert.Equal("a\"b\\c\nd\u0001", props.Str("quote"));
             foreach (var dropped in new[] { "nested", "array", "nan", "inf", new string('k', 101) }) Assert.False(props.TryGetProperty(dropped, out _), dropped);
             Assert.True(device.Log.Has("property nested is not a scalar"));
+        }
+
+        [Fact]
+        public void PropertiesAreTrimmedToTheCollectorLimits()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            var many = new Dictionary<string, object>();
+            for (var i = 0; i < 60; i++) many["k" + i] = i;
+            client.Track("many_keys", many);
+            var big = new Dictionary<string, object>();
+            for (var i = 0; i < 10; i++) big["k" + i] = new string('€', 1024);
+            client.Track("big_values", big);
+            client.Update();
+            var manyProps = device.Transport.AllEvents.Single(e => e.Name() == "many_keys").Props();
+            Assert.Equal(50, manyProps.EnumerateObject().Count());
+            Assert.True(manyProps.TryGetProperty("k49", out _));
+            Assert.False(manyProps.TryGetProperty("k50", out _));
+            var bigProps = device.Transport.AllEvents.Single(e => e.Name() == "big_values").Props();
+            Assert.Equal(2, bigProps.EnumerateObject().Count()); // 3 KB of UTF-8 for each value
+            Assert.True(Encoding.UTF8.GetByteCount(bigProps.GetRawText()) <= AnalyticsClient.MaxPropertyBytes);
+            Assert.True(device.Log.Has("properties over the limit"));
         }
 
         [Fact]
