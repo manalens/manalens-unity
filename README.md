@@ -1,14 +1,24 @@
 # Manalens for Unity
 
-Game analytics for Unity 2021.3 or later: sessions, launches, game events, errors and crashes. The SDK sends app events (`docs/sdks/app-events.mdx`) to `POST {endpoint}/v0/events` with your project's publishable key. It has no dependencies and works on Windows, macOS, Linux, Android, iOS and WebGL.
+Game analytics for Unity 2021.3 or later: sessions, launches, game events, errors and crashes. The SDK sends [app events](https://docs.manalens.dev/sdks/app-events) to `POST {endpoint}/v0/events` with your project's publishable key. It has no dependencies and works on Windows, macOS, Linux, Android, iOS and WebGL.
 
-Full guide: `docs/sdks/unity.mdx` in the Manalens repository.
+Full guide: [docs.manalens.dev/sdks/unity](https://docs.manalens.dev/sdks/unity).
 
 ## Install
 
-In Unity, open **Window > Package Manager**, click **+**, choose **Add package from tarball** and pick the `.tgz` file (or **Add package from disk** for a folder).
+In Unity, open **Window > Package Manager**, click **+**, choose **Add package from git URL**, and paste:
 
-During early access the package is available on request from support@manalens.dev. The SDK lives in the private Manalens repository for now, so there is no public git URL. It moves to its own public repository when it is published (P-2481).
+```
+https://github.com/manalens/manalens-unity.git#v0.1.0
+```
+
+Or add this line to `Packages/manifest.json` under `dependencies`:
+
+```json
+"dev.manalens.sdk": "https://github.com/manalens/manalens-unity.git#v0.1.0"
+```
+
+Keep the `#v0.1.0` tag, so your build does not change when we release a new version.
 
 ## Start
 
