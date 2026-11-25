@@ -439,6 +439,28 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void RefusedEventsOfAnAcceptedBatchAreReportedAndNotSentAgain()
+        {
+            // P-2787: the collector stores the valid events of a batch and lists the others.
+            var device = new Device();
+            var client = device.Launch();
+            var failed = new List<(int, int)>();
+            var flushed = new List<(int, bool)>();
+            client.SendFailed += (s, n) => failed.Add((s, n));
+            client.Flushed += (sent, ok) => flushed.Add((sent, ok));
+            device.Transport.Statuses.Enqueue(202);
+            device.Transport.ResponseBody = "{\"accepted\":1,\"rejected\":1,\"errors\":[{\"index\":1,\"message_id\":\"x\",\"code\":\"INVALID_EVENT\",\"message\":\"original_timestamp: Invalid ISO datetime\"}]}";
+            client.Update();
+            Assert.Equal(0, client.QueueSize);
+            Assert.Equal((202, 1), failed.Single());
+            Assert.Equal((1, true), flushed.Last());
+            Assert.True(device.Log.Has("collector refused 1 of 2 events (HTTP 202) INVALID_EVENT: original_timestamp: Invalid ISO datetime; they are dropped"), string.Join("\n", device.Log.Lines));
+            Assert.Equal(2, AnalyticsClient.RejectedCount("{\"rejected\": 2}"));
+            Assert.Equal(0, AnalyticsClient.RejectedCount("{\"accepted\":1}"));
+            Assert.Equal(0, AnalyticsClient.RejectedCount(null));
+        }
+
+        [Fact]
         public void QueueOverMaxQueueDropsTheOldest()
         {
             var device = new Device();

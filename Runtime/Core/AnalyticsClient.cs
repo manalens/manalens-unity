@@ -886,6 +886,19 @@ namespace ManalensSdk
 
         static readonly Regex RefusalCode = new Regex("\"code\"\\s*:\\s*\"([A-Z_]+)\"", RegexOptions.CultureInvariant);
         static readonly Regex RefusalMessage = new Regex("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", RegexOptions.CultureInvariant);
+        static readonly Regex RejectedField = new Regex("\"rejected\"\\s*:\\s*(\\d+)", RegexOptions.CultureInvariant);
+
+        /// <summary>
+        /// The number of refused events in an accepted batch (P-2787): the
+        /// collector stores the valid events and lists the others in
+        /// "errors". 0 when the body has no "rejected" count.
+        /// </summary>
+        public static int RejectedCount(string response)
+        {
+            if (string.IsNullOrEmpty(response)) return 0;
+            var match = RejectedField.Match(response);
+            return match.Success && int.TryParse(match.Groups[1].Value, out var n) ? n : 0;
+        }
 
         /// <summary>
         /// The reason of a refusal from the collector's response body: the
@@ -924,6 +937,19 @@ namespace ManalensSdk
                     var reason = RefusalReason(response);
                     _log.Warning("collector refused " + count + " events (HTTP " + status + ")" + (reason == "" ? "" : " " + reason) + "; they are dropped");
                     RaiseSendFailed(status, count);
+                }
+                else
+                {
+                    // An accepted batch can still list refused events (P-2787). They are
+                    // not sent again: the same events would be refused again.
+                    var refused = Math.Min(count, RejectedCount(response));
+                    if (refused > 0)
+                    {
+                        var reason = RefusalReason(response);
+                        _log.Warning("collector refused " + refused + " of " + count + " events (HTTP " + status + ")" + (reason == "" ? "" : " " + reason) + "; they are dropped");
+                        RaiseSendFailed(status, refused);
+                        count -= refused;
+                    }
                 }
             }
             else
