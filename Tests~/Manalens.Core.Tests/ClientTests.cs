@@ -516,6 +516,26 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void QueuedEventsAreSentWithTheKeyOfTheLaunchThatSendsThem()
+        {
+            // The disk queue does not store the key (G-2530 question). A dev
+            // build's unsent events go to the release key's project.
+            const string releaseBody = "mana_pk_ReleaseKeyReleaseKeyReleaseKeyReleaseKey000";
+            var releaseKey = releaseBody + Keys.Checksum(releaseBody);
+            var device = new Device();
+            var dev = device.Launch(Device.Options(o => o.Build = "dev"));
+            device.Transport.Statuses.Enqueue(0);
+            dev.Update();
+            dev.Track("dev_only");
+            dev.OnQuit();
+            var release = device.Launch(Device.Options(o => { o.PublishableKey = releaseKey; o.Build = "1"; }));
+            release.Update();
+            Assert.All(device.Transport.Requests, r => Assert.Equal(releaseKey, r.Headers["x-publishable-key"]));
+            var devEvent = device.Transport.AllEvents.Single(e => e.Name() == "dev_only");
+            Assert.Equal("dev", devEvent.GetProperty("context").GetProperty("app").Str("build"));
+        }
+
+        [Fact]
         public void IsIdleAfterAFailureSoShutdownStopsWaiting()
         {
             var device = new Device();
