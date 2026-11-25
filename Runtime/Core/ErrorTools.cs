@@ -58,7 +58,8 @@ namespace ManalensSdk
                 frame.Function = function;
                 var match = UnityAtRe.Match(line);
                 if (!match.Success) match = DotNetInRe.Match(line);
-                if (match.Success && match.Groups[1].Value != "<filename unknown>")
+                // Release players have no file: "<filename unknown>", or "<module ID>:0", an ID that changes with each build.
+                if (match.Success && !match.Groups[1].Value.StartsWith("<", StringComparison.Ordinal))
                 {
                     frame.File = match.Groups[1].Value.Replace('\\', '/');
                     frame.Line = int.TryParse(match.Groups[2].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : 0;
@@ -66,6 +67,29 @@ namespace ManalensSdk
                 return frame;
             }
             return frame;
+        }
+
+        /// <summary>
+        /// True when the first frame after the logging and .NET library frames
+        /// is Unity Editor code: an error of the editor itself, which Play mode
+        /// also logs. A player has no UnityEditor frames.
+        /// </summary>
+        public static bool IsEditorStack(string stack)
+        {
+            if (string.IsNullOrEmpty(stack)) return false;
+            foreach (var raw in stack.Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith("at ", StringComparison.Ordinal)) line = line.Substring(3);
+                if (line.Length == 0 || line.StartsWith("---", StringComparison.Ordinal)) continue;
+                if (line.StartsWith("System.", StringComparison.Ordinal) || line.StartsWith("Mono.", StringComparison.Ordinal)) continue;
+                var skipped = false;
+                foreach (var prefix in SkippedFrames)
+                    if (line.StartsWith(prefix, StringComparison.Ordinal)) { skipped = true; break; }
+                if (skipped) continue;
+                return line.StartsWith("UnityEditor.", StringComparison.Ordinal);
+            }
+            return false;
         }
 
         /// <summary>The exception class from a Unity exception log line, short form (NullReferenceException), or "".</summary>

@@ -56,7 +56,10 @@ namespace UnityEngine
         public static void DontDestroyOnLoad(Object target) { }
     }
 
-    public class Component : Object { }
+    public class Component : Object
+    {
+        public T GetComponent<T>() => default;
+    }
     public class Behaviour : Component { }
     public class Coroutine { }
 
@@ -69,6 +72,24 @@ namespace UnityEngine
     {
         public GameObject(string name) { }
         public T AddComponent<T>() where T : Component, new() => new T();
+    }
+
+    public struct Rect
+    {
+        public Rect(float x, float y, float width, float height) { }
+    }
+
+    public static class GUILayout
+    {
+        public static void BeginArea(Rect screenRect) { }
+        public static void EndArea() { }
+        public static void Label(string text) { }
+        public static bool Button(string text) => false;
+    }
+
+    public static class Random
+    {
+        public static int Range(int minInclusive, int maxExclusive) => minInclusive;
     }
 
     public class AsyncOperation

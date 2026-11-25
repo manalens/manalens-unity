@@ -518,8 +518,9 @@ namespace ManalensSdk
                 _lastActivityAt = _state.GetDouble("session.last_activity_at", _sessionStartedAt);
                 // No normal exit and the game had focus: count it as a crash (as the
                 // Sentry "abnormal" session). A game the OS closed in the background
-                // is not a crash.
-                if (!_state.GetBool("session.exited", false) && _state.GetBool("session.focused", true))
+                // is not a crash. On web a closed or reloaded tab has no quit event,
+                // so every relaunch would look like a crash: no crash detection there.
+                if (!_state.GetBool("session.exited", false) && _state.GetBool("session.focused", true) && _env.Platform != "web")
                 {
                     var crash = new Dictionary<string, object> { ["previous_session_id"] = previous };
                     var build = _state.Get("session.build");
@@ -1022,6 +1023,8 @@ namespace ManalensSdk
             for (var i = 0; i < items.Count && i < AutoErrorsPerUpdate; i++)
             {
                 var item = items[i];
+                // Play mode also logs the editor's own errors (the inspector, search indexing): not the game's.
+                if (ErrorTools.IsEditorStack(item.Stack)) continue;
                 var frame = ErrorTools.FirstFrame(item.Stack);
                 var errorType = item.Kind == LogKind.Exception ? ErrorTools.ExceptionType(item.Message) : "";
                 if (errorType == "") errorType = item.Kind == LogKind.Exception ? "exception" : item.Kind == LogKind.Assert ? "assert" : item.Kind == LogKind.Warning ? "log_warning" : "log_error";

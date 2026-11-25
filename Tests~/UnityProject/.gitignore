@@ -1,0 +1,11 @@
+# Unity makes these when it opens the project.
+/Library/
+/Temp/
+/Logs/
+/UserSettings/
+/ProjectSettings/
+/Packages/packages-lock.json
+/Assets/E2E/E2E.unity
+*.meta
+*.csproj
+*.sln

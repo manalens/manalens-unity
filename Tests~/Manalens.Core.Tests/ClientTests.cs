@@ -640,6 +640,25 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void AReloadedWebGLPageIsNotACrash()
+        {
+            // Seen in a WebGL build: a reload or a closed tab has no quit event.
+            var device = new Device();
+            var page = device.Launch(platform: "web");
+            page.Update();
+            var session = page.SessionId;
+            device.Clock.Advance(25);
+            page.Update();
+            device.Clock.Advance(600);
+            var reloaded = device.Launch(platform: "web");
+            reloaded.Update();
+            Assert.DoesNotContain("app_unclean_exit", device.Transport.Names);
+            var end = device.Transport.AllEvents.Single(e => e.Name() == "session_end");
+            Assert.Equal(session, end.Str("session_id"));
+            Assert.Equal(25, end.Props().GetProperty("duration_s").GetInt64());
+        }
+
+        [Fact]
         public void AnAppKilledInTheBackgroundIsNotACrash()
         {
             var device = new Device();
@@ -796,6 +815,22 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void AnEditorErrorInPlayModeIsNotCaptured()
+        {
+            // Seen in Unity 6 Play mode: an exception of the editor's search indexing.
+            var device = new Device();
+            var client = device.Launch();
+            client.CaptureLog("ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection.",
+                "  at System.Collections.Generic.List`1[T].get_Item (System.Int32 index) [0x00009] in <2d46e6b0>:0 \n" +
+                "  at UnityEditor.Search.SearchDatabase+<EnumerateAll>d__78.MoveNext () [0x00089] in /Users/bokken/build/output/unity/unity/Modules/QuickSearch/Editor/Indexing/SearchDatabase.cs:351 \n", LogKind.Exception);
+            client.CaptureLog("Inspector failed", "UnityEngine.Debug:LogError (object)\nUnityEditor.InspectorWindow:OnGUI () (at /Users/bokken/InspectorWindow.cs:10)\n", LogKind.Error);
+            client.CaptureLog("Boss failed", "UnityEngine.Debug:LogError (object)\nBoss:Update () (at Assets/Boss.cs:5)\n", LogKind.Error);
+            client.Update();
+            var props = Single(device, "unity_log").Props();
+            Assert.Equal("Boss failed", props.Str("message"));
+        }
+
+        [Fact]
         public void ADebugLogErrorSkipsTheLoggingFrames()
         {
             var frame = ErrorTools.FirstFrame("UnityEngine.Debug:LogError (object)\nInventory:Load (string) (at Assets/Inventory.cs:88)\n");
@@ -809,6 +844,11 @@ namespace Manalens.Tests
             Assert.Equal("Game.Save.Write", dotnet.Function);
             Assert.Equal("C:/src/Save.cs", dotnet.File);
             Assert.Equal(17, dotnet.Line);
+            // A macOS Mono release player (Unity 6): the module ID changes with each build, so it is not a file.
+            var player = ErrorTools.FirstFrame("E2ERunner.Update () (at <b67cbc119ab74ac9ad98b7eaeaad2a9e>:0)\nUnityEngine.StackTraceUtility:ExtractStringFromExceptionInternal(Object, String&, String&)\n");
+            Assert.Equal("E2ERunner.Update", player.Function);
+            Assert.Equal("", player.File);
+            Assert.Equal(0, player.Line);
             var mono = ErrorTools.FirstFrame("  at Game.Save.Write (System.String path) [0x00012] in /src/Save.cs:17 ");
             Assert.Equal("Game.Save.Write", mono.Function);
             Assert.Equal("/src/Save.cs", mono.File);

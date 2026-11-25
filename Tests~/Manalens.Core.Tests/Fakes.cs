@@ -114,11 +114,11 @@ namespace Manalens.Tests
         }
 
         /// <summary>A new process on this device.</summary>
-        public AnalyticsClient Launch(ManalensOptions options = null, bool init = true)
+        public AnalyticsClient Launch(ManalensOptions options = null, bool init = true, string platform = "windows")
         {
             Transport = new FakeTransport();
             Log = new ListLog();
-            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = "windows", Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes }, Storage, Transport, Clock, Log)
+            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes }, Storage, Transport, Clock, Log)
             {
                 Random = () => 0.5,
             };

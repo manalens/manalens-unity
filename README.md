@@ -47,7 +47,9 @@ Manalens.Identify("player_42");
 Manalens.TrackError("Save failed", new TrackErrorOptions { ErrorType = "SaveFailed", Severity = "critical" });
 ```
 
-The SDK sends `game_open`, `session_start`, `session_end`, captured exceptions and `app_unclean_exit` (after a crash) for you.
+The SDK sends `game_open`, `session_start`, `session_end`, captured exceptions and `app_unclean_exit` (after a crash; not on WebGL, where a closed tab has no quit event) for you.
+
+The `Basic` sample (Package Manager > Manalens > Samples) has a scene with buttons that send an event and an error.
 
 ## Layout
 
