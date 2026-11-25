@@ -9,6 +9,7 @@ Fixes from the first test in a real Unity Editor and real players (Unity 6.6: Pl
 - Release players: the module ID in a stack frame (`(at <b67c...>:0)`) is no longer used as the file. It changes with each build, so the same error got a new fingerprint in each build.
 - The `Basic` sample has a scene (`Basic.unity`) with a demo panel.
 - Refused events of an accepted batch (`202` with `rejected` above 0, P-2787) are dropped, logged with their reason codes, and reported by `SendFailed(202, count)`. `Flushed` counts only the stored events.
+- WebGL: the state and the queue are in the browser's `localStorage`, written at once (a `.jslib` plugin). With PlayerPrefs, a reload right after the first launch lost the state and made a new anonymous ID (10 of 10 tries in a test), so one player counted as two. An opt-out followed by an immediate reload was lost in the same way (5 of 5 tries), and tracking started again (P-2791). A state that 0.1.0 kept in PlayerPrefs moves to `localStorage` on the first read. Without `localStorage` (some private modes and sandboxed iframes), the SDK uses PlayerPrefs.
 
 ## 0.1.0 (2026-11-24)
 

@@ -70,9 +70,11 @@ namespace ManalensSdk
                 UtcOffsetMinutes = CurrentUtcOffsetMinutes(),
                 DefaultAppVersion = Application.version,
             };
-            IStorage storage = Application.platform == RuntimePlatform.WebGLPlayer
-                ? (IStorage)new PlayerPrefsStorage()
-                : new FileStorage(Application.persistentDataPath, Log);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            IStorage storage = BrowserStorage.Create();
+#else
+            IStorage storage = new FileStorage(Application.persistentDataPath, Log);
+#endif
             var client = new AnalyticsClient(options, environment, storage, new UnityWebRequestTransport(), new SystemClock(), Log);
             client.Flushed += (sent, ok) => Flushed?.Invoke(sent, ok);
             client.SendFailed += (status, dropped) => SendFailed?.Invoke(status, dropped);

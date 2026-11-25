@@ -3,7 +3,10 @@
 /Temp/
 /Logs/
 /UserSettings/
-/ProjectSettings/
+# Keep ProjectVersion.txt: without it, Unity treats a new checkout as a new project and
+# adds its default packages to Packages/manifest.json.
+/ProjectSettings/*
+!/ProjectSettings/ProjectVersion.txt
 /Packages/packages-lock.json
 /Assets/E2E/E2E.unity
 *.meta

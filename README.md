@@ -54,7 +54,7 @@ The `Basic` sample (Package Manager > Manalens > Samples) has a scene with butto
 ## Layout
 
 - `Runtime/Core`: the engine-independent SDK (no UnityEngine reference): envelopes, identity, sessions, queue, retries, consent, errors.
-- `Runtime/Unity`: the Unity layer: the `Manalens` static API, a hidden MonoBehaviour (Update, focus, pause, quit, log capture), UnityWebRequest and PlayerPrefs.
+- `Runtime/Unity`: the Unity layer: the `Manalens` static API, a hidden MonoBehaviour (Update, focus, pause, quit, log capture), UnityWebRequest, and the WebGL storage (`localStorage` through `WebGL/ManalensStorage.jslib`, else PlayerPrefs).
 - `Samples~/Basic`: a bootstrap component.
 - `Tests~`: .NET projects that build and test the core outside Unity (`dotnet test`), fixtures and a local end-to-end runner. Unity does not import folders that end in `~`.
 

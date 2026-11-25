@@ -4,8 +4,9 @@ using UnityEngine;
 namespace ManalensSdk
 {
     /// <summary>
-    /// WebGL storage: PlayerPrefs, which Unity keeps in the browser's IndexedDB.
-    /// Files in Application.persistentDataPath need a manual sync on WebGL.
+    /// WebGL fallback storage when localStorage is not available (BrowserStorage),
+    /// and the storage of SDK 0.1.0: PlayerPrefs, which Unity keeps in the browser's
+    /// IndexedDB. Unity writes them there only a moment after Save().
     /// A PlayerPrefs value is replaced as a whole, so a write is atomic.
     /// </summary>
     internal sealed class PlayerPrefsStorage : IStorage

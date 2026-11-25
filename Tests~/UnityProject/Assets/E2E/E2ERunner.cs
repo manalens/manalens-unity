@@ -221,9 +221,48 @@ public sealed class E2ERunner : MonoBehaviour
                 Manalens.Track("webgl_event", Props());
                 Debug.LogError("E2E WebGL error");
                 yield return WaitSent(8);
-                Check(PlayerPrefs.HasKey(AnalyticsClient.StateName), "webgl: state in PlayerPrefs");
+                // The state is in localStorage (the script checks it), not in PlayerPrefs (P-2791).
+                Check(!PlayerPrefs.HasKey(AnalyticsClient.StateName), "webgl: no state in PlayerPrefs");
                 _result["anonymous_id"] = Manalens.AnonymousId;
                 _result["queue_size"] = Manalens.QueueSize.ToString(CultureInfo.InvariantCulture);
+                quit = false;
+                break;
+
+            case "webgl-legacy":
+            {
+                // SDK 0.1.0 kept the state in PlayerPrefs: the first read moves it to localStorage.
+                const string legacyId = "00000000-0000-4000-8000-000000000791";
+                PlayerPrefs.SetString(AnalyticsClient.StateName, "# manalens state v1\nidentity.anonymous_id=" + legacyId + "\nidentity.first_open_at=2026-11-01T00:00:00.000Z\n# end\n");
+                PlayerPrefs.Save();
+                Check(Manalens.Init(Options()), "init");
+                Check(Manalens.AnonymousId == legacyId, "webgl-legacy: the anonymous ID of SDK 0.1.0 is kept (got " + Manalens.AnonymousId + ")");
+                Check(!PlayerPrefs.HasKey(AnalyticsClient.StateName), "webgl-legacy: the PlayerPrefs copy is deleted");
+                _result["anonymous_id"] = Manalens.AnonymousId;
+                quit = false;
+                break;
+            }
+
+            case "webgl-optout":
+                // The script loads "webgl-after-optout" as soon as this line is logged.
+                Check(Manalens.Init(Options()), "init");
+                Check(Manalens.AnonymousId != "", "webgl-optout: an anonymous ID before the opt-out");
+                Manalens.SetConsent(false);
+                Check(Manalens.AnonymousId == "", "webgl-optout: the ID is kept after SetConsent(false)");
+                quit = false;
+                break;
+
+            case "webgl-after-optout":
+                Check(Manalens.Init(Options()), "init");
+                Manalens.Track("after_optout", Props());
+                Check(Manalens.AnonymousId == "", "webgl-after-optout: a new anonymous ID after the opt-out");
+                Check(Manalens.QueueSize == 0, "webgl-after-optout: events queued after the opt-out");
+                quit = false;
+                break;
+
+            case "webgl-id":
+                // The first launch in a browser: the script reloads the page as soon as this line is logged.
+                Check(Manalens.Init(Options()), "init");
+                Debug.Log("MANALENS_ID " + Manalens.AnonymousId);
                 quit = false;
                 break;
 
