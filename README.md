@@ -37,7 +37,6 @@ public class Analytics : MonoBehaviour
             Endpoint = "https://YOUR_COLLECTOR_ENDPOINT",
             Build = "571",
             Storefront = "steam",
-            Enabled = !Application.isEditor,
         });
     }
 }

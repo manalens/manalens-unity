@@ -20,8 +20,8 @@ public class AnalyticsBootstrap : MonoBehaviour
     [Tooltip("steam, itch, epic, gog, app_store, play or other")]
     public string storefront = "steam";
 
-    [Tooltip("Also send events from Play mode in the editor (use a test project key).")]
-    public bool sendFromEditor;
+    [Tooltip("The build sent from Play mode in the editor. Editor and live data go to the same project, so filter by build to tell them apart.")]
+    public string editorBuild = "dev";
 
     void Awake()
     {
@@ -30,9 +30,8 @@ public class AnalyticsBootstrap : MonoBehaviour
         {
             PublishableKey = publishableKey,
             Endpoint = endpoint,
-            Build = build,
+            Build = Application.isEditor ? editorBuild : build,
             Storefront = storefront,
-            Enabled = sendFromEditor || !Application.isEditor,
             Debug = Application.isEditor,
         });
     }
