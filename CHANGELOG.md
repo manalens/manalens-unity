@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.4 (2026-11-26)
 
 - Each request sends `sent_at`, the device clock at the time of the send. The collector uses it to correct the event times, so a device clock that is fast or slow no longer gives wrong times or refused events (P-2799).
 - The SDK follows `Retry-After` (P-2794). After a retried response (network error, `408`, `429`, `5xx`), it waits at least the `Retry-After` value (seconds or an HTTP date), at most 1 hour. Without the header, the backoff stays as before (2, 4, 8 ... seconds with jitter, at most 5 minutes). The collector sends `Retry-After` with a rate limit `429` and with a `503`, so the SDK no longer retries before the collector is ready.
