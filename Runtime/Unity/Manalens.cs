@@ -51,6 +51,35 @@ namespace ManalensSdk
         }
 
         /// <summary>
+        /// Project Settings > Manalens: starts the SDK after the first scene
+        /// loads (after Awake, before Start) when the settings asset has a key
+        /// and AutoInitialize. A game that called Init() in Awake keeps its own
+        /// options.
+        /// </summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        [Preserve]
+        static void AutoInitialize()
+        {
+            if (_client != null) return;
+            var settings = ManalensSettings.Load();
+            if (settings == null || !settings.AutoInitialize || string.IsNullOrWhiteSpace(settings.PublishableKey)) return;
+            if (settings.Debug) Log.Info("starting from Project Settings > Manalens");
+            Init(settings.ToOptions());
+        }
+
+        /// <summary>Starts the SDK with the options of Project Settings > Manalens. Returns false when there is no settings asset or Init fails.</summary>
+        public static bool Init()
+        {
+            var settings = ManalensSettings.Load();
+            if (settings == null)
+            {
+                Log.Error("no Project Settings > Manalens asset (Assets/Resources/ManalensSettings.asset); pass ManalensOptions to Init");
+                return false;
+            }
+            return Init(settings.ToOptions());
+        }
+
+        /// <summary>
         /// Starts the SDK once, on the main thread, for example in the Awake() of
         /// your first scene. Returns false (and logs why) when the options are
         /// wrong, for example a missing endpoint or a secret key.
@@ -169,6 +198,12 @@ namespace ManalensSdk
         public static int QueueSize => _client?.QueueSize ?? 0;
         public static bool IsSending => _client?.IsSending ?? false;
         public static bool IsInitialized => _client != null;
+        /// <summary>false before Init, when Enabled is false, and before consent in consent mode.</summary>
+        public static bool IsTracking => _client != null && _client.IsActive;
+        /// <summary>The result of the last send, for example "HTTP 202: 12 events stored".</summary>
+        public static string LastSendResult => _client?.LastSendResult ?? "";
+        /// <summary>The JSON of the last queued events, oldest first (Project Settings > Manalens in Play mode).</summary>
+        public static string[] RecentEvents => _client?.RecentEvents ?? Array.Empty<string>();
 
         static bool Ready()
         {

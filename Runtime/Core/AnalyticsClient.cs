@@ -97,6 +97,10 @@ namespace ManalensSdk
         Dictionary<string, object> _deferredTraits;
         Func<Dictionary<string, object>, Dictionary<string, object>> _beforeSend;
         readonly List<string> _breadcrumbs = new List<string>();
+        /// <summary>The JSON of the last queued events, oldest first (Project Settings > Manalens in Play mode).</summary>
+        readonly List<string> _recent = new List<string>();
+        public const int RecentCount = 20;
+        string _lastSendResult = "";
         readonly Dictionary<string, long> _errorSeen = new Dictionary<string, long>();
         readonly List<long> _errorTimes = new List<long>();
         int _autoErrors, _errorsDropped;
@@ -470,6 +474,10 @@ namespace ManalensSdk
         public string SessionId { get { lock (_gate) return _sessionId; } }
         public int QueueSize { get { lock (_gate) return _queue.Count; } }
         public bool IsSending { get { lock (_gate) return _sending; } }
+        /// <summary>The result of the last send, for example "HTTP 202: 12 events stored". "" before the first response.</summary>
+        public string LastSendResult { get { lock (_gate) return _lastSendResult; } }
+        /// <summary>The JSON of the last RecentCount queued events, oldest first, also after they were sent.</summary>
+        public string[] RecentEvents { get { lock (_gate) return _recent.ToArray(); } }
         /// <summary>No request in flight, and nothing to send now (empty queue, or waiting after a failure).</summary>
         public bool IsIdle { get { lock (_gate) return !_sending && (_queue.Count == 0 || Now() < _backoffUntil || !_identityActive); } }
         public ManalensOptions Options => _options;
@@ -697,6 +705,7 @@ namespace ManalensSdk
             _userId = "";
             _sessionId = "";
             _queue.Clear();
+            _recent.Clear();
             _queueDirty = false;
             WriteOptOut();
         }
@@ -814,6 +823,8 @@ namespace ManalensSdk
                 RaiseSendFailed(0, overflow);
             }
             _queueDirty = true;
+            _recent.Add(entry.Json);
+            if (_recent.Count > RecentCount) _recent.RemoveAt(0);
             if (_options.Debug) _log.Info("queued " + entry.Json);
             if (_queue.Count >= _flushAt)
             {
@@ -967,6 +978,10 @@ namespace ManalensSdk
                 if (_options.Debug) _log.Info("send failed (HTTP " + status + "); retry in " + Math.Round(wait) + " s");
             }
             _sending = false;
+            var why = RefusalReason(response);
+            _lastSendResult = status <= 0 ? "network error: kept in the queue, sent again later"
+                : ok ? "HTTP " + status + ": " + count + " events stored" + (ids.Count > count ? ", " + (ids.Count - count) + " refused" + (why == "" ? "" : " (" + why + ")") : "")
+                : "HTTP " + status + (why == "" ? "" : " " + why) + (rejected ? ": " + count + " events dropped" : ": kept in the queue, sent again later");
             SaveQueue();
             RaiseFlushed(ok ? count : 0, ok);
             if ((ok || rejected) && _queue.Count > 0) _flushRequested = true;

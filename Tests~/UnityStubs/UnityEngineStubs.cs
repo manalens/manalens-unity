@@ -56,6 +56,16 @@ namespace UnityEngine
         public static void DontDestroyOnLoad(Object target) { }
     }
 
+    public class ScriptableObject : Object
+    {
+        public static T CreateInstance<T>() where T : ScriptableObject, new() => new T();
+    }
+
+    public static class Resources
+    {
+        public static T Load<T>(string path) where T : Object => null;
+    }
+
     public class Component : Object
     {
         public T GetComponent<T>() => default;

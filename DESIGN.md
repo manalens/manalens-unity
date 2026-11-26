@@ -36,10 +36,10 @@ Findings:
 9. **Domain reload off**: static state resets at `RuntimeInitializeLoadType.SubsystemRegistration` (Sentry).
 10. **Consent fails closed** (security review). Storage tells "missing" apart from "exists but unreadable"; the state file has a header and an end line, so a cut-off write does not parse. Only a missing state is a first run. An unreadable or damaged state keeps the SDK off and is never overwritten (a damaged one is copied aside; `SetConsent(true)` starts a new state). An opt-out also writes a marker file that wins over the state. A failed opt-out write keeps the SDK off and is retried each tick. All writes go to a temporary file and are renamed.
 11. **`Enabled = !Application.isEditor`** in the docs, so Play mode tests do not mix into real reports (Sentry's `CaptureInEditor`, Godot SDK `enabled`).
+12. **Settings asset in `Resources/`** (GameAnalytics, Sentry), added later (G-2532): `ManalensSettings` with a Project Settings page (key check, test event, Play mode state) and an automatic start after the first scene loads. `Init(options)` stays the main API and wins when it runs first. Godot has the same in Project Settings and a dock.
 
 ## What we did not adopt (yet)
 
-- **Settings asset in `Resources/`** (GameAnalytics, Sentry). Code-only `Init()` is fewer moving parts and keeps one source of truth with the Godot SDK. An asset can be added later without an API change.
 - **Device events** (`clientDevice`, battery, RAM, GPU). The collector schema has no fields for them, and we send no hardware details (same as the Godot SDK).
 - **Heartbeat events** (`gameRunning`). Sessions already stay alive while the game has focus.
 - **Halving the batch on 413** (PostHog). Batches are at most 50 small events; a 413 is a 4xx and drops the batch, as in the Godot SDK.
