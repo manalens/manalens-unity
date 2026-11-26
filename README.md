@@ -9,16 +9,16 @@ Full guide: [docs.manalens.dev/sdks/unity](https://docs.manalens.dev/sdks/unity)
 In Unity, open **Window > Package Manager**, click **+**, choose **Add package from git URL**, and paste:
 
 ```
-https://github.com/manalens/manalens-unity.git#v0.1.5
+https://github.com/manalens/manalens-unity.git#v0.1.6
 ```
 
 Or add this line to `Packages/manifest.json` under `dependencies`:
 
 ```json
-"dev.manalens.sdk": "https://github.com/manalens/manalens-unity.git#v0.1.5"
+"dev.manalens.sdk": "https://github.com/manalens/manalens-unity.git#v0.1.6"
 ```
 
-Keep the `#v0.1.5` tag, so your build does not change when we release a new version.
+Keep the `#v0.1.6` tag, so your build does not change when we release a new version.
 
 ## Start
 

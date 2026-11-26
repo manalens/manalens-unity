@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.6 (2026-11-26)
 
 - Console values (P-2776). `context.app.platform` is now `ps5` (PS5), `xbox_series` (GameCoreXboxSeries), `xbox_one` (GameCoreXboxOne and the old XboxOne player), or `switch` (Switch) instead of `other`. New option `Platform`: empty (default) detects the platform; set it when the detection cannot name the console, for example `"switch2"` in a Nintendo Switch 2 build. `Storefront` also accepts `psn`, `xbox`, and `nintendo`.
 
