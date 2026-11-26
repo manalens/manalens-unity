@@ -37,6 +37,8 @@ namespace ManalensSdk
         /// <summary>The collector accepts app events up to 7 days old. Keep a margin for clock skew.</summary>
         public const double MaxEventAgeSeconds = 7 * 24 * 3600 - 3600;
         public const double MaxBackoffSeconds = 300;
+        /// <summary>The longest wait that a Retry-After header can ask for (1 hour).</summary>
+        public const double MaxRetryAfterSeconds = 3600;
         /// <summary>Identity handoff: the URL parameter that the web SDK reads.</summary>
         public const string HandoffParam = "mana_hid";
         public static readonly string[] Storefronts = { "steam", "itch", "epic", "gog", "app_store", "play", "other" };
@@ -883,15 +885,20 @@ namespace ManalensSdk
             var done = false;
             try
             {
-                _transport.Send(url, headers, body.ToString(), (status, response) =>
+                void Complete(int status, string response, string retryAfter)
                 {
                     lock (_gate)
                     {
                         if (done) return; // A transport must call back once; ignore extra calls.
                         done = true;
-                        OnResponse(status, ids, response);
+                        OnResponse(status, ids, response, retryAfter);
                     }
-                });
+                }
+                // A transport that also gives Retry-After (optional, IRetryAfterTransport) gets the longer callback.
+                if (_transport is IRetryAfterTransport withRetryAfter)
+                    withRetryAfter.Send(url, headers, body.ToString(), Complete);
+                else
+                    _transport.Send(url, headers, body.ToString(), (status, response) => Complete(status, response, null));
             }
             catch (Exception e)
             {
@@ -899,7 +906,7 @@ namespace ManalensSdk
                 if (!done)
                 {
                     done = true;
-                    OnResponse(0, ids, null);
+                    OnResponse(0, ids, null, null);
                 }
             }
         }
@@ -938,7 +945,26 @@ namespace ManalensSdk
             return text.Length > 300 ? text.Substring(0, 300) : text;
         }
 
-        void OnResponse(int status, HashSet<string> ids, string response)
+        /// <summary>
+        /// The wait in seconds that a Retry-After header asks for: an integer
+        /// number of seconds, or an HTTP date (then the time until that date).
+        /// A missing or invalid value, or a date in the past, gives 0. Not
+        /// capped: the caller applies <see cref="MaxRetryAfterSeconds"/>.
+        /// </summary>
+        public static double ParseRetryAfter(string header, double nowUnixSeconds)
+        {
+            var value = header?.Trim();
+            if (string.IsNullOrEmpty(value)) return 0;
+            var digits = true;
+            foreach (var c in value) digits &= c >= '0' && c <= '9';
+            if (digits)
+                return double.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) ? seconds : 0;
+            if (DateTimeOffset.TryParseExact(value, "r", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var date))
+                return Math.Max(0, date.ToUnixTimeMilliseconds() / 1000.0 - nowUnixSeconds);
+            return 0;
+        }
+
+        void OnResponse(int status, HashSet<string> ids, string response, string retryAfter)
         {
             var count = ids.Count;
             var ok = status >= 200 && status < 300;
@@ -977,6 +1003,8 @@ namespace ManalensSdk
                 _failures++;
                 var delay = Math.Min(MaxBackoffSeconds, Math.Pow(2, _failures));
                 var wait = delay * (0.5 + 0.5 * Random());
+                // Wait at least what the collector asks for (Retry-After on a 429 or 503), at most 1 hour.
+                wait = Math.Max(wait, Math.Min(MaxRetryAfterSeconds, ParseRetryAfter(retryAfter, Now())));
                 _backoffUntil = Now() + wait;
                 if (_options.Debug) _log.Info("send failed (HTTP " + status + "); retry in " + Math.Round(wait) + " s");
             }

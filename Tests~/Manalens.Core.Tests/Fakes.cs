@@ -64,23 +64,37 @@ namespace Manalens.Tests
     }
 
     /// <summary>Records each request. Answers with the next queued status at once, or keeps it pending when Manual.</summary>
-    sealed class FakeTransport : ITransport
+    sealed class FakeTransport : IRetryAfterTransport
     {
         public readonly List<Request> Requests = new List<Request>();
         public readonly Queue<int> Statuses = new Queue<int>();
         public bool Manual;
         /// <summary>The response body that each answer carries (the collector sends one with a refusal).</summary>
         public string ResponseBody;
+        /// <summary>The Retry-After header that each answer carries (null: no header).</summary>
+        public string RetryAfter;
 
         public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string> onComplete)
+            => Send(url, headers, body, (status, response, _) => onComplete(status, response));
+
+        public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string, string> onComplete)
         {
-            var request = new Request { Url = url, Headers = headers, Body = body, Complete = status => onComplete(status, ResponseBody) };
+            var request = new Request { Url = url, Headers = headers, Body = body, Complete = status => onComplete(status, ResponseBody, RetryAfter) };
             Requests.Add(request);
             if (!Manual) request.Complete(Statuses.Count > 0 ? Statuses.Dequeue() : 202);
         }
 
         public List<JsonElement> AllEvents => Requests.SelectMany(r => r.Events).ToList();
         public List<string> Names => AllEvents.Select(e => e.TryGetProperty("event", out var n) ? n.GetString() : e.GetProperty("type").GetString()).ToList();
+    }
+
+    /// <summary>A custom transport written before IRetryAfterTransport: it implements only ITransport.</summary>
+    sealed class OnlyITransport : ITransport
+    {
+        readonly ITransport _inner;
+        public OnlyITransport(ITransport inner) { _inner = inner; }
+        public void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string> onComplete)
+            => _inner.Send(url, headers, body, onComplete);
     }
 
     sealed class ListLog : ILog
@@ -103,6 +117,8 @@ namespace Manalens.Tests
         public ListLog Log = new ListLog();
         public int NextId;
         public bool Sequential;
+        /// <summary>Give the client a transport that implements only ITransport (no Retry-After).</summary>
+        public bool OnlyITransport;
         /// <summary>The device clock's UTC offset in minutes. Null: the SDK sends none.</summary>
         public int? UtcOffsetMinutes;
 
@@ -118,7 +134,7 @@ namespace Manalens.Tests
         {
             Transport = new FakeTransport();
             Log = new ListLog();
-            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes }, Storage, Transport, Clock, Log)
+            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes }, Storage, OnlyITransport ? new OnlyITransport(Transport) : (ITransport)Transport, Clock, Log)
             {
                 Random = () => 0.5,
             };

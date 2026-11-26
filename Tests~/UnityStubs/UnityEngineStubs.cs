@@ -152,6 +152,7 @@ namespace UnityEngine.Networking
         public Result result => Result.Success;
         public long responseCode => 0;
         public void SetRequestHeader(string name, string value) { }
+        public string GetResponseHeader(string name) => null;
         public UnityWebRequestAsyncOperation SendWebRequest() => new UnityWebRequestAsyncOperation();
         public void Dispose() { }
     }

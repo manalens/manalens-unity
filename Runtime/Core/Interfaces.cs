@@ -42,6 +42,22 @@ namespace ManalensSdk
         void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string> onComplete);
     }
 
+    /// <summary>
+    /// Optional: a transport that also gives the <c>Retry-After</c> response
+    /// header. Call <c>onComplete</c> exactly once with the HTTP status (0 for
+    /// a network error), the response body (or null), and the raw value of the
+    /// <c>Retry-After</c> header (or null). When a transport implements this
+    /// interface, the SDK calls this method and not
+    /// <see cref="ITransport.Send"/>. After a retried response (network error,
+    /// 408, 429, 5xx) the SDK waits at least <c>Retry-After</c>, at most 1 hour.
+    /// A transport that implements only <see cref="ITransport"/> still works:
+    /// the SDK then uses only its own backoff.
+    /// </summary>
+    public interface IRetryAfterTransport : ITransport
+    {
+        void Send(string url, IReadOnlyDictionary<string, string> headers, string body, Action<int, string, string> onComplete);
+    }
+
     /// <summary>Wall time (event times) and a monotonic clock (error limits).</summary>
     public interface IClock
     {

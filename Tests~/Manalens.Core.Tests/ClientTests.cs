@@ -416,6 +416,101 @@ namespace Manalens.Tests
         }
 
         [Theory]
+        [InlineData("120", 120)]
+        [InlineData(" 60 ", 60)]
+        [InlineData("0", 0)]
+        [InlineData("99999", 99999)]
+        [InlineData(null, 0)]
+        [InlineData("", 0)]
+        [InlineData("soon", 0)]
+        [InlineData("-5", 0)]
+        [InlineData("1.5", 0)]
+        public void ParsesRetryAfterSeconds(string header, double expected)
+        {
+            Assert.Equal(expected, AnalyticsClient.ParseRetryAfter(header, 1_800_000_000));
+        }
+
+        [Fact]
+        public void ParsesRetryAfterHttpDates()
+        {
+            var now = 1_800_000_000.0;
+            var at = DateTimeOffset.FromUnixTimeSeconds(1_800_000_090).ToString("r", CultureInfo.InvariantCulture);
+            Assert.Equal(90, AnalyticsClient.ParseRetryAfter(at, now));
+            var past = DateTimeOffset.FromUnixTimeSeconds(1_799_999_000).ToString("r", CultureInfo.InvariantCulture);
+            Assert.Equal(0, AnalyticsClient.ParseRetryAfter(past, now));
+            Assert.Equal(0, AnalyticsClient.ParseRetryAfter("Fri, 99 Nov 2026 00:00:00 GMT", now));
+        }
+
+        /// <summary>Seconds until the client sends the retry after one failed send with this status and Retry-After.</summary>
+        static double WaitAfter(Device device, AnalyticsClient client, int status, string retryAfter)
+        {
+            device.Transport.Statuses.Enqueue(status);
+            device.Transport.RetryAfter = retryAfter;
+            client.Update();
+            Assert.Single(device.Transport.Requests);
+            device.Transport.RetryAfter = null;
+            var start = device.Clock.Now;
+            while (device.Transport.Requests.Count == 1)
+            {
+                Assert.True(device.Clock.Now - start < 7200, "no retry within 2 hours");
+                device.Clock.Advance(0.25);
+                client.SendNow();
+            }
+            return device.Clock.Now - start;
+        }
+
+        [Theory]
+        [InlineData(429, "60", 60)]
+        [InlineData(503, "30", 30)]
+        [InlineData(500, "10", 10)]
+        [InlineData(429, "99999", 3600)] // At most 1 hour.
+        [InlineData(429, "1", 1.5)] // Shorter than the backoff: the backoff wins (2 s times jitter 0.75).
+        [InlineData(429, null, 1.5)] // Missing: the backoff only.
+        [InlineData(503, "later", 1.5)] // Invalid: the backoff only.
+        public void WaitsAtLeastRetryAfterAtMostOneHour(int status, string retryAfter, double expected)
+        {
+            var device = new Device();
+            var client = device.Launch();
+            var wait = WaitAfter(device, client, status, retryAfter);
+            Assert.InRange(wait, expected, expected + 0.25);
+            Assert.Equal(0, client.QueueSize);
+        }
+
+        [Fact]
+        public void WaitsUntilARetryAfterDate()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            var at = DateTimeOffset.FromUnixTimeSeconds((long)device.Clock.Now + 120).ToString("r", CultureInfo.InvariantCulture);
+            var wait = WaitAfter(device, client, 429, at);
+            Assert.InRange(wait, 120, 120.25);
+        }
+
+        [Fact]
+        public void IgnoresRetryAfterOnAnAcceptedOrRefusedBatch()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            device.Transport.RetryAfter = "600";
+            client.Update();
+            Assert.Equal(0, client.QueueSize);
+            client.Track("after");
+            client.SendNow();
+            Assert.Equal(2, device.Transport.Requests.Count);
+        }
+
+        [Fact]
+        public void ACustomTransportWithOnlyITransportStillWorksWithTheBackoff()
+        {
+            var device = new Device { OnlyITransport = true };
+            var client = device.Launch();
+            // The inner fake has a Retry-After, but an ITransport-only transport cannot pass it on.
+            var wait = WaitAfter(device, client, 429, "60");
+            Assert.InRange(wait, 1.5, 1.75);
+            Assert.Equal(0, client.QueueSize);
+        }
+
+        [Theory]
         [InlineData(400)]
         [InlineData(401)]
         [InlineData(413)]
