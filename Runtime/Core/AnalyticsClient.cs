@@ -21,7 +21,7 @@ namespace ManalensSdk
     public sealed class AnalyticsClient
     {
         public const string LibraryName = "Manalens Unity SDK";
-        public const string LibraryVersion = "0.1.6";
+        public const string LibraryVersion = "0.2.0";
         public const string Engine = "unity";
         public const string StateName = "manalens_state";
         public const string QueueName = "manalens_queue";
