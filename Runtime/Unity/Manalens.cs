@@ -38,6 +38,14 @@ namespace ManalensSdk
         /// </summary>
         public static event Action<int, int> SendFailed;
 
+        /// <summary>
+        /// The answer to LinkSteam(): linked, the HTTP status (0 when no request
+        /// was made or the network failed), and the API error code (for example
+        /// STEAM_TICKET_INVALID or STEAM_NOT_CONNECTED) or NETWORK_ERROR,
+        /// CONSENT_REQUIRED or IDENTITY_CHANGED. "" on success.
+        /// </summary>
+        public static event Action<bool, int, string> SteamLinked;
+
         /// <summary>Resets the static state when domain reload is off ("Enter Play Mode Options").</summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         [Preserve]
@@ -48,6 +56,7 @@ namespace ManalensSdk
             _mainThreadId = -1;
             Flushed = null;
             SendFailed = null;
+            SteamLinked = null;
         }
 
         /// <summary>
@@ -108,6 +117,7 @@ namespace ManalensSdk
             var client = new AnalyticsClient(options, environment, storage, new UnityWebRequestTransport(), new SystemClock(), Log);
             client.Flushed += (sent, ok) => Flushed?.Invoke(sent, ok);
             client.SendFailed += (status, dropped) => SendFailed?.Invoke(status, dropped);
+            client.SteamLinked += (linked, status, code) => SteamLinked?.Invoke(linked, status, code);
             if (!client.Init()) return false;
             _client = client;
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
@@ -141,6 +151,45 @@ namespace ManalensSdk
         public static void Identify(string userId, IDictionary<string, object> traits = null)
         {
             if (Ready()) _client.Identify(userId, traits);
+        }
+
+        /// <summary>
+        /// Sets traits on this player, with or without a player ID. Before
+        /// Identify() they belong to this install's anonymous ID. Waits for
+        /// consent. Protected traits (email, itch_user_id, stripe_customer_id,
+        /// paddle_customer_id) are not sent.
+        /// </summary>
+        public static void Traits(IDictionary<string, object> traits)
+        {
+            if (Ready()) _client.Traits(traits);
+        }
+
+        /// <summary>
+        /// Verifies the Steam account of this player with your own Web API
+        /// ticket: the bytes from SteamUser.GetAuthTicketForWebApi("manalens")
+        /// and its GetTicketForWebApiResponse_t callback (or Facepunch:
+        /// (await SteamUser.GetAuthTicketForWebApiAsync("manalens")).Data). Sent
+        /// after consent; the answer comes in SteamLinked.
+        /// </summary>
+        public static void LinkSteam(byte[] ticket)
+        {
+            if (!Ready()) return;
+            SteamLink.StopAuto();
+            _client.LinkSteam(ticket);
+        }
+
+        /// <summary>
+        /// Verifies the Steam account of this player with Steamworks.NET: asks
+        /// for a Web API ticket with the identity "manalens" and sends it. Needs
+        /// the define MANALENS_STEAMWORKS_NET (set when the Steamworks.NET
+        /// package is installed) and a started Steam API. Returns false when the
+        /// SDK cannot ask Steam (no Steamworks.NET, or Steam not running).
+        /// </summary>
+        public static bool LinkSteam()
+        {
+            if (!Ready()) return false;
+            SteamLink.StopAuto();
+            return SteamLink.Request(_client);
         }
 
         /// <summary>Forgets the player (sign out): new anonymous ID and new session.</summary>

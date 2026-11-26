@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- New `Manalens.Traits(traits)` (P-2814): set traits on this player, with or without a player ID. Before `Identify()` the traits belong to the anonymous ID of this install. The protected traits `email`, `itch_user_id`, `stripe_customer_id`, and `paddle_customer_id` are not sent (one warning). Calls before consent are merged and sent after consent.
+- New `Manalens.LinkSteam(byte[] ticket)`, `Manalens.LinkSteam()`, the option `SteamLink`, and the event `SteamLinked` (P-2815). The SDK posts a Steam Web API ticket (identity `manalens`) to `/v0/link` on the API host (new option `ApiEndpoint`; default: the `Endpoint` with `events.` changed to `api.`), after consent, from `Update()`. With Steamworks.NET (define `MANALENS_STEAMWORKS_NET`, set by the package's version define), the SDK asks Steam for the ticket itself. A refusal is not sent again; a `429` with `Retry-After` of 60 s or less is tried once more, but not after `SetConsent(false)` or `Reset()` during the wait.
+- The WebGL and player transport now reads the response body of a `5xx` too, so the SDK can log its error code.
+- The shared fixture scenario has a `traits` event.
+
 ## 0.1.6 (2026-11-26)
 
 - Console values (P-2776). `context.app.platform` is now `ps5` (PS5), `xbox_series` (GameCoreXboxSeries), `xbox_one` (GameCoreXboxOne and the old XboxOne player), or `switch` (Switch) instead of `other`. New option `Platform`: empty (default) detects the platform; set it when the detection cannot name the console, for example `"switch2"` in a Nintendo Switch 2 build. `Storefront` also accepts `psn`, `xbox`, and `nintendo`.

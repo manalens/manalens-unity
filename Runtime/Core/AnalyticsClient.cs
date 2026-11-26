@@ -60,6 +60,15 @@ namespace ManalensSdk
         public const int MaxPropertyKeys = 50;
         /// <summary>The collector refuses properties or traits whose JSON has more UTF-8 bytes (P-2700).</summary>
         public const int MaxPropertyBytes = 8 * 1024;
+        /// <summary>
+        /// Protected traits (P-2814): only a server with the secret key may set
+        /// them. The collector drops them from game events, so Traits() does not send them.
+        /// </summary>
+        public static readonly string[] ProtectedTraits = { "email", "itch_user_id", "stripe_customer_id", "paddle_customer_id" };
+        /// <summary>LinkSteam(): the identity of the Steam Web API ticket. The server accepts only this one.</summary>
+        public const string SteamTicketIdentity = "manalens";
+        /// <summary>LinkSteam() waits for a 429 Retry-After of at most this many seconds, once.</summary>
+        public const double LinkMaxRetryAfterSeconds = 60;
         const string LogPrefix = "Manalens:";
         static readonly Regex LabelRe = new Regex("^[A-Za-z0-9._+\\- ]+$", RegexOptions.CultureInvariant);
 
@@ -71,6 +80,13 @@ namespace ManalensSdk
         /// 0 when the SDK dropped events itself (over MaxQueue, or older than 7 days).
         /// </summary>
         public event Action<int, int> SendFailed;
+        /// <summary>
+        /// The answer to LinkSteam() (P-2815): linked, the HTTP status (0 when no
+        /// request was made or the network failed), and the API error code
+        /// (for example STEAM_TICKET_INVALID or STEAM_NOT_CONNECTED) or an SDK
+        /// code: NETWORK_ERROR, CONSENT_REQUIRED or IDENTITY_CHANGED. "" on success.
+        /// </summary>
+        public event Action<bool, int, string> SteamLinked;
 
         readonly object _gate = new object();
         readonly object _logGate = new object();
@@ -102,6 +118,17 @@ namespace ManalensSdk
         bool _queueDirty, _sending, _flushRequested;
         string[] _deferredIdentify;
         Dictionary<string, object> _deferredTraits;
+        /// <summary>Traits() before consent, merged.</summary>
+        Dictionary<string, object> _heldTraits;
+        bool _warnedProtectedTraits;
+        string _linkUrl = "";
+        /// <summary>A Steam ticket (hex) that waits for consent or for Update(), or null.</summary>
+        string _pendingLinkTicket;
+        /// <summary>The body of the link request in flight or waiting for its retry, and the anonymous ID it carries.</summary>
+        string _linkBody, _linkAnonymousId;
+        bool _linkInFlight;
+        int _linkAttempt;
+        double _linkRetryAt = -1;
         Func<Dictionary<string, object>, Dictionary<string, object>> _beforeSend;
         bool _inBeforeSend;
         readonly List<string> _breadcrumbs = new List<string>();
@@ -290,11 +317,103 @@ namespace ManalensSdk
             }
         }
 
+        /// <summary>
+        /// Sets traits on this player, with or without a user ID (P-2814).
+        /// Before Identify() the traits belong to this install's anonymous ID;
+        /// after it, to the user. Values: string, number, bool or null (null
+        /// clears a trait). At most 50 keys and 8 KB of JSON. Like Identify(), it
+        /// waits for consent: calls before consent are merged and sent then.
+        /// The protected traits (email, itch_user_id, stripe_customer_id,
+        /// paddle_customer_id) are not sent (one warning).
+        /// </summary>
+        public void Traits(IDictionary<string, object> traits)
+        {
+            lock (_gate)
+            {
+                if (_disabled) return;
+                if (!_initialized)
+                {
+                    _log.Warning("call Init() first");
+                    return;
+                }
+                var kept = new Dictionary<string, object>();
+                var dropped = new List<string>();
+                if (traits != null)
+                    foreach (var pair in traits)
+                    {
+                        if (Array.IndexOf(ProtectedTraits, pair.Key) >= 0) dropped.Add(pair.Key);
+                        else kept[pair.Key] = pair.Value;
+                    }
+                if (dropped.Count > 0 && !_warnedProtectedTraits)
+                {
+                    _warnedProtectedTraits = true;
+                    _log.Warning("Traits() does not send " + string.Join(", ", dropped) + ". Only a server with the secret key can set protected traits");
+                }
+                var values = Scalars(kept);
+                if (values.Count == 0)
+                {
+                    if (dropped.Count == 0) _log.Warning("Traits() needs at least one trait");
+                    return;
+                }
+                if (!_identityActive)
+                {
+                    if (_heldTraits == null) _heldTraits = new Dictionary<string, object>();
+                    foreach (var pair in values) _heldTraits[pair.Key] = pair.Value;
+                    return;
+                }
+                SendTraits(values);
+            }
+        }
+
+        void SendTraits(Dictionary<string, object> values)
+        {
+            Touch();
+            Enqueue(Build("traits", null, new Dictionary<string, object>(), -1, values));
+        }
+
+        /// <summary>
+        /// Links the Steam account of this player (P-2815). Manalens checks the
+        /// ticket with Steam and reads which of your apps the account owns. The
+        /// player does not sign in. Make the ticket with
+        /// GetAuthTicketForWebApi("manalens") and pass the bytes from the ticket
+        /// callback (16 to 2048 bytes). The request goes out at the next Update()
+        /// after consent, to the API host (ApiEndpoint). The answer comes in
+        /// SteamLinked. A refused ticket is not sent again; a 429 with
+        /// Retry-After (60 s or less) is tried once more, but not after
+        /// SetConsent(false) or Reset() during the wait. Safe from any thread.
+        /// </summary>
+        public void LinkSteam(byte[] ticket)
+        {
+            lock (_gate)
+            {
+                if (_disabled) return;
+                if (!_initialized)
+                {
+                    _log.Warning("call Init() first");
+                    return;
+                }
+                if (ticket == null || ticket.Length < 16 || ticket.Length > 2048)
+                {
+                    _log.Warning("LinkSteam() needs a ticket of 16 to 2048 bytes");
+                    return;
+                }
+                if (_linkInFlight) return;
+                var hex = new StringBuilder(ticket.Length * 2);
+                foreach (var b in ticket) hex.Append(b.ToString("x2", CultureInfo.InvariantCulture));
+                _pendingLinkTicket = hex.ToString();
+            }
+        }
+
+        /// <summary>true while a LinkSteam() request waits, runs or waits for its retry.</summary>
+        public bool IsLinking { get { lock (_gate) return _linkInFlight || _pendingLinkTicket != null; } }
+
         /// <summary>Forgets the player: ends the session, clears the user ID, makes a new anonymous ID and starts a new session.</summary>
         public void Reset()
         {
             lock (_gate)
             {
+                _heldTraits = null;
+                _pendingLinkTicket = null;
                 if (!_identityActive)
                 {
                     _userId = "";
@@ -368,6 +487,7 @@ namespace ManalensSdk
                     OnTick();
                 }
                 if (_flushRequested) TrySend();
+                UpdateLink();
             }
         }
 
@@ -580,6 +700,12 @@ namespace ManalensSdk
                 _deferredTraits = null;
                 Identify(userId, traits);
             }
+            if (_heldTraits != null)
+            {
+                var held = _heldTraits;
+                _heldTraits = null;
+                SendTraits(held);
+            }
             _flushRequested = true;
         }
 
@@ -723,6 +849,8 @@ namespace ManalensSdk
             _identityActive = false;
             _deferredIdentify = null;
             _deferredTraits = null;
+            _heldTraits = null;
+            _pendingLinkTicket = null;
             _anonymousId = "";
             _userId = "";
             _sessionId = "";
@@ -1419,7 +1547,117 @@ namespace ManalensSdk
                 return false;
             }
             _url = endpoint.TrimEnd('/') + "/v0/events";
+            // The API host of LinkSteam(): ApiEndpoint, or the endpoint with an events. host changed to api.
+            var api = (_options.ApiEndpoint ?? "").Trim();
+            if (api == "")
+            {
+                var builder = new UriBuilder(uri);
+                if (builder.Host.StartsWith("events.", StringComparison.OrdinalIgnoreCase)) builder.Host = "api." + builder.Host.Substring("events.".Length);
+                api = builder.Uri.GetComponents(UriComponents.SchemeAndServer | UriComponents.Path, UriFormat.UriEscaped);
+            }
+            _linkUrl = api.TrimEnd('/') + "/v0/link";
             return true;
+        }
+
+        /// <summary>The URL of LinkSteam().</summary>
+        public string LinkSteamUrl { get { lock (_gate) return _linkUrl; } }
+
+        // Steam link (P-2815) ------------------------------------------------
+
+        /// <summary>Called from Update(): sends a pending link, or the one retry after a 429.</summary>
+        void UpdateLink()
+        {
+            if (_linkRetryAt >= 0 && Now() >= _linkRetryAt)
+            {
+                _linkRetryAt = -1;
+                // The same gates as the first send: after SetConsent(false), an
+                // opt-out or Reset() the old ticket and ID are not sent again.
+                if (!_identityActive) { FinishLink(false, 0, "CONSENT_REQUIRED"); return; }
+                if (_anonymousId != _linkAnonymousId) { FinishLink(false, 0, "IDENTITY_CHANGED"); return; }
+                SendLink();
+                return;
+            }
+            if (_pendingLinkTicket == null || _linkInFlight || !_identityActive || _anonymousId == "") return;
+            var body = new StringBuilder("{\"provider\":\"steam\",\"ticket\":");
+            Json.WriteString(body, _pendingLinkTicket);
+            body.Append(",\"anonymous_id\":");
+            Json.WriteString(body, _anonymousId);
+            body.Append('}');
+            _pendingLinkTicket = null;
+            _linkBody = body.ToString();
+            _linkAnonymousId = _anonymousId;
+            _linkAttempt = 0;
+            _linkInFlight = true;
+            SendLink();
+        }
+
+        void SendLink()
+        {
+            var headers = new Dictionary<string, string>
+            {
+                ["Content-Type"] = "application/json",
+                ["x-publishable-key"] = _options.PublishableKey,
+            };
+            var done = false;
+            void Complete(int status, string response, string retryAfter)
+            {
+                lock (_gate)
+                {
+                    if (done) return;
+                    done = true;
+                    OnLinkResponse(status, response, retryAfter);
+                }
+            }
+            try
+            {
+                if (_transport is IRetryAfterTransport withRetryAfter)
+                    withRetryAfter.Send(_linkUrl, headers, _linkBody, Complete);
+                else
+                    _transport.Send(_linkUrl, headers, _linkBody, (status, response) => Complete(status, response, null));
+            }
+            catch (Exception e)
+            {
+                _log.Warning("link request failed to start (" + e.Message + ")");
+                if (!done)
+                {
+                    done = true;
+                    OnLinkResponse(0, null, null);
+                }
+            }
+        }
+
+        void OnLinkResponse(int status, string response, string retryAfter)
+        {
+            if (status >= 200 && status < 300)
+            {
+                if (_options.Debug) _log.Info("Steam account linked");
+                FinishLink(true, status, "");
+                return;
+            }
+            if (status <= 0)
+            {
+                FinishLink(false, 0, "NETWORK_ERROR");
+                return;
+            }
+            var wait = string.IsNullOrEmpty(retryAfter) ? -1 : ParseRetryAfter(retryAfter, Now());
+            if (status == 429 && _linkAttempt == 0 && !string.IsNullOrEmpty(retryAfter) && wait >= 0 && wait <= LinkMaxRetryAfterSeconds)
+            {
+                _linkAttempt = 1;
+                _linkRetryAt = Now() + wait;
+                return;
+            }
+            var match = response == null ? null : RefusalCode.Match(response);
+            var code = match != null && match.Success ? match.Groups[1].Value : "";
+            _log.Warning("LinkSteam() failed (HTTP " + status + (code == "" ? "" : " " + code) + ")");
+            FinishLink(false, status, code);
+        }
+
+        void FinishLink(bool linked, int status, string code)
+        {
+            _linkInFlight = false;
+            _linkBody = null;
+            try { SteamLinked?.Invoke(linked, status, code); }
+            catch (Exception e) { _log.Warning("a SteamLinked handler threw: " + e.Message); }
         }
 
         double TickInterval() => Math.Max(1, _options.FlushIntervalSeconds);

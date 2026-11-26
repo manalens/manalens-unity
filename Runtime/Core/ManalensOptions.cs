@@ -11,6 +11,12 @@ namespace ManalensSdk
         /// <summary>The collector URL, without /v0/events.</summary>
         public string Endpoint = "";
         /// <summary>
+        /// The API URL of LinkSteam(). Empty (default): the Endpoint with an
+        /// events. host changed to api. (https://events.manalens.dev gives
+        /// https://api.manalens.dev); any other endpoint is used as it is.
+        /// </summary>
+        public string ApiEndpoint = "";
+        /// <summary>
         /// false: the SDK sends nothing, writes no files and keeps no ID.
         /// Use <c>Enabled = !Application.isEditor</c> to keep editor runs out of your reports.
         /// </summary>
@@ -28,6 +34,14 @@ namespace ManalensSdk
         /// ios, ps5, xbox_series, xbox_one, switch, switch2 or other.
         /// </summary>
         public string Platform = "";
+        /// <summary>
+        /// true: verify the Steam account once per launch, after consent
+        /// (P-2815). Unity: needs Steamworks.NET (the define
+        /// MANALENS_STEAMWORKS_NET) and a started Steam API; the SDK asks for a
+        /// Web API ticket with the identity "manalens" and sends it. Without
+        /// Steamworks.NET it does nothing. Off by default.
+        /// </summary>
+        public bool SteamLink;
         /// <summary>true: no events and no persistent ID until SetConsent(true).</summary>
         public bool ConsentRequired;
         public double FlushIntervalSeconds = 10;
@@ -46,7 +60,7 @@ namespace ManalensSdk
         public int MaxAutoErrorsPerSession = 50;
         /// <summary>
         /// Gets a copy of each event before it is queued: track events (also
-        /// error and the automatic events such as session_start), and identify.
+        /// error and the automatic events such as session_start), identify and traits.
         /// Keys: type, event, properties, traits, user_id, message_id,
         /// anonymous_id, session_id, context, ... Return the event to send
         /// (changed or not), or null to drop it. The SDK takes event, properties,

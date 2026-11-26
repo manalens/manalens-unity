@@ -51,9 +51,38 @@ The SDK sends `game_open`, `session_start`, `session_end`, captured exceptions a
 
 The `Basic` sample (Package Manager > Manalens > Samples) has a scene with buttons that send an event and an error.
 
+## Traits
+
+`Manalens.Traits()` sets traits on this player. It needs no player ID: before `Identify()`, the traits belong to this install's anonymous ID; after it, to the player. A `null` value clears a trait.
+
+```csharp
+Manalens.Traits(new Dictionary<string, object> { ["level"] = 3, ["difficulty"] = "hard" });
+```
+
+- Values are strings, numbers, bools or `null`. At most 50 keys and 8 KB of JSON.
+- The protected traits `email`, `itch_user_id`, `stripe_customer_id` and `paddle_customer_id` are not sent (one warning). Only a server with the secret key can set them.
+- Like `Identify()`, it waits for consent. Calls before consent are merged and sent then.
+
+## Verify Steam ownership
+
+`Manalens.LinkSteam()` links the Steam account that runs the game to this install. Manalens checks a Steam ticket with Steam and reads which of your apps the account owns. The player does not sign in. See [Steam ownership](https://docs.manalens.dev/features/steam-ownership) and the [Link API](https://docs.manalens.dev/api/link).
+
+- **Steamworks.NET:** set `SteamLink = true` in the options, or call `Manalens.LinkSteam()` after `SteamAPI.Init()`. The SDK calls `SteamUser.GetAuthTicketForWebApi("manalens")`, waits for `GetTicketForWebApiResponse_t`, and sends the ticket once per launch after consent. The helper compiles with the define `MANALENS_STEAMWORKS_NET`. The package sets it when the Steamworks.NET package (`com.rlabrecque.steamworks.net`) is installed. For a copy of Steamworks.NET in `Assets`, add the define in **Player Settings > Scripting Define Symbols**. Without it, the SDK has no Steam dependency.
+- **Facepunch.Steamworks or your own Steam code:** make a ticket with the identity `manalens` and pass its bytes:
+
+```csharp
+var ticket = await SteamUser.GetAuthTicketForWebApiAsync("manalens"); // Facepunch.Steamworks
+Manalens.LinkSteam(ticket.Data);
+```
+
+- `Manalens.SteamLinked += (linked, status, code) => ...` gives the answer. `code` is the API error code (for example `STEAM_TICKET_INVALID` or `STEAM_NOT_CONNECTED`), or `NETWORK_ERROR`, `CONSENT_REQUIRED` or `IDENTITY_CHANGED`.
+- The request goes to `<ApiEndpoint>/v0/link`. `ApiEndpoint` defaults to the `Endpoint` with `events.` changed to `api.`.
+- A refused ticket is not sent again. After a `429` with `Retry-After` (60 s or less), the SDK tries once more, but not after `SetConsent(false)` or `Reset()` during the wait.
+- Say in your privacy notice that your game sends a Steam ticket to Manalens to confirm ownership.
+
 ## BeforeSend
 
-`BeforeSend` gets a copy of each event (track, identify, error, automatic events) before it is queued. Return it (changed or not), or `null` to drop it. The SDK takes `event`, `properties`, `traits`, and `user_id` from the result. If the result changes or removes `type`, `message_id`, `anonymous_id`, `session_id`, or `context.app`, the SDK sends the original event.
+`BeforeSend` gets a copy of each event (track, identify, traits, error, automatic events) before it is queued. Return it (changed or not), or `null` to drop it. The SDK takes `event`, `properties`, `traits`, and `user_id` from the result. If the result changes or removes `type`, `message_id`, `anonymous_id`, `session_id`, or `context.app`, the SDK sends the original event.
 
 ```csharp
 // Keep 10% of player_jump events (sampling).

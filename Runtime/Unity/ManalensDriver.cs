@@ -32,6 +32,7 @@ namespace ManalensSdk
         void Update()
         {
             Client?.Update();
+            SteamLink.Tick(Client);
         }
 
         // Desktop: focus. Mobile: pause comes with focus loss; one flag keeps a single state change (as Sentry).

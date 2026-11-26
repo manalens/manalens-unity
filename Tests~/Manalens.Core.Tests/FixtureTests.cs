@@ -31,6 +31,7 @@ namespace Manalens.Tests
                 ["flow"] = "source", ["currency"] = "gold", ["amount"] = 25, ["ratio"] = 0.75, ["float"] = 0.1f,
                 ["big"] = 9_000_000_000L, ["price"] = 4.99m, ["boss"] = false, ["note"] = null, ["text"] = "quote \" slash \\ line\nend",
             });
+            first.Traits(new Dictionary<string, object> { ["difficulty"] = "hard", ["level"] = 3 });
             first.Identify("player_42", new Dictionary<string, object> { ["plan"] = "supporter", ["level"] = 12, ["vip"] = true });
             first.TrackError("Save failed for slot 3", new TrackErrorOptions { Severity = "critical", ErrorType = "SaveFailed", Handled = false, Properties = new Dictionary<string, object> { ["slot"] = 3 } });
             device.Clock.Advance(5);

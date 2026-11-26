@@ -37,7 +37,7 @@ namespace ManalensSdk
                 // A connection error has no HTTP status: report 0, so the SDK keeps the batch and retries.
                 var status = request.result == UnityWebRequest.Result.ConnectionError ? 0 : (int)request.responseCode;
                 // The body of a refusal names the reason (the SDK logs it). Read it before Dispose().
-                var response = status >= 400 && status < 500 ? request.downloadHandler?.text : null;
+                var response = status >= 400 ? request.downloadHandler?.text : null;
                 // The collector sends Retry-After with a 429 or 503: the SDK waits at least that long.
                 var retryAfter = status > 0 ? request.GetResponseHeader("Retry-After") : null;
                 request.Dispose();

@@ -9,9 +9,12 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <!-- CS0067: stub events that are never raised. -->
     <NoWarn>CS0067</NoWarn>
+    <!-- Also compile the Steamworks.NET helper (SteamLink.cs) against SteamworksStubs.cs. -->
+    <DefineConstants>$(DefineConstants);MANALENS_STEAMWORKS_NET</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="UnityEngineStubs.cs" />
+    <Compile Include="SteamworksStubs.cs" />
     <Compile Include="../../Runtime/Unity/**/*.cs" />
     <Compile Include="../../Samples~/**/*.cs" />
   </ItemGroup>
