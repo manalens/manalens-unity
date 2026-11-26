@@ -51,6 +51,25 @@ The SDK sends `game_open`, `session_start`, `session_end`, captured exceptions a
 
 The `Basic` sample (Package Manager > Manalens > Samples) has a scene with buttons that send an event and an error.
 
+## BeforeSend
+
+`BeforeSend` gets a copy of each event (track, identify, error, automatic events) before it is queued. Return it (changed or not), or `null` to drop it. The SDK takes `event`, `properties`, `traits`, and `user_id` from the result. If the result changes or removes `type`, `message_id`, `anonymous_id`, `session_id`, or `context.app`, the SDK sends the original event.
+
+```csharp
+// Keep 10% of player_jump events (sampling).
+var random = new System.Random();
+Manalens.SetBeforeSend(e =>
+    e.TryGetValue("event", out var name) && (string)name == "player_jump" && random.NextDouble() >= 0.1 ? null : e);
+
+// Remove personal data from every event (PII scrub).
+Manalens.SetBeforeSend(e =>
+{
+    ((Dictionary<string, object>)e["properties"]).Remove("email");
+    if (e.TryGetValue("traits", out var traits)) ((Dictionary<string, object>)traits).Remove("email");
+    return e;
+});
+```
+
 ## WebGL
 
 A WebGL build runs in a browser, so its requests carry an `Origin` header. The collector accepts it when the page is on:

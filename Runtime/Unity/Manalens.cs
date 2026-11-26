@@ -154,7 +154,7 @@ namespace ManalensSdk
             if (Ready()) _client.SetConsent(granted);
         }
 
-        /// <summary>Replaces the BeforeSend option for error events. Null removes it.</summary>
+        /// <summary>Replaces the BeforeSend option. It gets every event; return null to drop one. Null removes it.</summary>
         public static void SetBeforeSend(Func<Dictionary<string, object>, Dictionary<string, object>> callback)
         {
             _client?.SetBeforeSend(callback);

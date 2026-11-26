@@ -38,9 +38,16 @@ namespace ManalensSdk
         /// <summary>Automatic errors in one session; TrackError() calls do not count.</summary>
         public int MaxAutoErrorsPerSession = 50;
         /// <summary>
-        /// Gets the properties of each error event before it is queued. Return
-        /// the properties to send (for example without personal data), or null
-        /// to drop the error.
+        /// Gets a copy of each event before it is queued: track events (also
+        /// error and the automatic events such as session_start), and identify.
+        /// Keys: type, event, properties, traits, user_id, message_id,
+        /// anonymous_id, session_id, context, ... Return the event to send
+        /// (changed or not), or null to drop it. The SDK takes event, properties,
+        /// traits and user_id from the result and keeps the other fields. When
+        /// the result changes or removes type, message_id, anonymous_id,
+        /// session_id or context.app, the original event is sent. Errors pass
+        /// the error limits first. If it throws, the event is dropped. Do not
+        /// record events inside it: they are dropped.
         /// </summary>
         public Func<Dictionary<string, object>, Dictionary<string, object>> BeforeSend;
         /// <summary>Log each queued event and each failed send.</summary>

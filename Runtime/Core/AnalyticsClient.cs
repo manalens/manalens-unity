@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -98,6 +99,7 @@ namespace ManalensSdk
         string[] _deferredIdentify;
         Dictionary<string, object> _deferredTraits;
         Func<Dictionary<string, object>, Dictionary<string, object>> _beforeSend;
+        bool _inBeforeSend;
         readonly List<string> _breadcrumbs = new List<string>();
         /// <summary>The JSON of the last queued events, oldest first (Project Settings > Manalens in Play mode).</summary>
         readonly List<string> _recent = new List<string>();
@@ -107,6 +109,7 @@ namespace ManalensSdk
         readonly List<long> _errorTimes = new List<long>();
         int _autoErrors, _errorsDropped;
         List<PendingLog> _pendingLogs = new List<PendingLog>();
+        readonly List<string> _homeDirs = ErrorTools.HomeDirs();
         int _logOverflow;
 
         sealed class QueueEntry
@@ -238,7 +241,7 @@ namespace ManalensSdk
             TrackError(exception.Message, options);
         }
 
-        /// <summary>Replaces the BeforeSend option. Null removes it.</summary>
+        /// <summary>Replaces the BeforeSend option (it runs on every event). Null removes it.</summary>
         public void SetBeforeSend(Func<Dictionary<string, object>, Dictionary<string, object>> callback)
         {
             lock (_gate) _beforeSend = callback;
@@ -285,9 +288,11 @@ namespace ManalensSdk
                     _userId = "";
                     _deferredIdentify = null;
                     _deferredTraits = null;
+                    ClearErrorHistory();
                     return;
                 }
-                EndSession(Now());
+                EndSession(Now()); // Sends errors_dropped of the old session.
+                ClearErrorHistory();
                 _userId = "";
                 _anonymousId = NewId();
                 _state.Set("identity.user_id", "");
@@ -709,7 +714,23 @@ namespace ManalensSdk
             _queue.Clear();
             _recent.Clear();
             _queueDirty = false;
+            ClearErrorHistory();
+            lock (_logGate)
+            {
+                // Logs captured before the withdrawal are never sent.
+                _pendingLogs.Clear();
+                _logOverflow = 0;
+            }
             WriteOptOut();
+        }
+
+        /// <summary>Event names and error counts of the old player must never reach a later error.</summary>
+        void ClearErrorHistory()
+        {
+            _breadcrumbs.Clear();
+            _errorSeen.Clear();
+            _errorTimes.Clear();
+            _errorsDropped = 0;
         }
 
         /// <summary>Writes the marker and the state, and deletes the queue. On any failure, retry later.</summary>
@@ -733,12 +754,19 @@ namespace ManalensSdk
 
         // Events and queue ---------------------------------------------------
 
+        /// <summary>Builds the envelope and runs BeforeSend on it. Null: BeforeSend dropped the event.</summary>
         QueueEntry Build(string type, string eventName, Dictionary<string, object> properties, double at, Dictionary<string, object> traits = null)
         {
             properties = Fit(properties, "properties");
             if (traits != null) traits = Fit(traits, "traits");
             var when = at < 0 ? Now() : at;
             var messageId = NewId();
+            var userId = _userId;
+            if (_beforeSend != null && !ApplyBeforeSend(type, ref eventName, ref properties, ref traits, ref userId, messageId, when))
+            {
+                if (_options.Debug) _log.Info("BeforeSend dropped " + type + " " + eventName);
+                return null;
+            }
             var sb = new StringBuilder(512);
             sb.Append("{\"type\":");
             Json.WriteString(sb, type);
@@ -764,10 +792,10 @@ namespace ManalensSdk
                 sb.Append(",\"event\":");
                 Json.WriteString(sb, eventName);
             }
-            if (_userId != "")
+            if (userId != "")
             {
                 sb.Append(",\"user_id\":");
-                Json.WriteString(sb, _userId);
+                Json.WriteString(sb, userId);
             }
             if (traits != null)
             {
@@ -783,7 +811,7 @@ namespace ManalensSdk
             return new QueueEntry { At = when, MessageId = messageId, Json = sb.ToString() };
         }
 
-        void WriteContext(StringBuilder sb)
+        List<KeyValuePair<string, object>> AppValues()
         {
             var app = new List<KeyValuePair<string, object>>
             {
@@ -793,6 +821,111 @@ namespace ManalensSdk
             if (_appVersion != "") app.Add(new KeyValuePair<string, object>("app_version", _appVersion));
             if (_build != "") app.Add(new KeyValuePair<string, object>("build", _build));
             if (_storefront != "") app.Add(new KeyValuePair<string, object>("storefront", _storefront));
+            return app;
+        }
+
+        /// <summary>
+        /// Gives BeforeSend a copy of the whole event. Takes event, properties,
+        /// traits and user_id from the result; keeps the other fields. Returns
+        /// false to drop the event. When the result changes or removes type,
+        /// message_id, anonymous_id, session_id or context.app, or has a wrong
+        /// event, properties, traits or user_id, the original event is kept.
+        /// </summary>
+        bool ApplyBeforeSend(string type, ref string eventName, ref Dictionary<string, object> properties, ref Dictionary<string, object> traits, ref string userId, string messageId, double when)
+        {
+            if (_inBeforeSend)
+            {
+                _log.Warning("an event recorded inside BeforeSend is dropped");
+                return false;
+            }
+            var app = new Dictionary<string, object>();
+            foreach (var pair in AppValues()) app[pair.Key] = pair.Value;
+            var context = new Dictionary<string, object> { ["app"] = new Dictionary<string, object>(app), ["library_name"] = LibraryName, ["library_version"] = LibraryVersion };
+            if (!string.IsNullOrEmpty(_env.Locale)) context["locale"] = Left(_env.Locale.Replace('_', '-'), 32);
+            var view = new Dictionary<string, object>
+            {
+                ["type"] = type,
+                ["message_id"] = messageId,
+                ["channel"] = "app",
+                ["version"] = LibraryVersion,
+                ["original_timestamp"] = Ids.Iso(when),
+                ["context"] = context,
+                ["properties"] = new Dictionary<string, object>(properties),
+                ["anonymous_id"] = _anonymousId,
+            };
+            if (_sessionId != "") view["session_id"] = _sessionId;
+            if (!string.IsNullOrEmpty(eventName)) view["event"] = eventName;
+            if (userId != "") view["user_id"] = userId;
+            if (traits != null) view["traits"] = new Dictionary<string, object>(traits);
+            Dictionary<string, object> changed;
+            _inBeforeSend = true;
+            try
+            {
+                changed = _beforeSend(view);
+            }
+            catch (Exception e)
+            {
+                _log.Warning("BeforeSend threw (" + e.Message + "); event dropped");
+                return false;
+            }
+            finally
+            {
+                _inBeforeSend = false;
+            }
+            if (changed == null) return false;
+
+            var ok = Same(changed, "type", type) && Same(changed, "message_id", messageId) && Same(changed, "anonymous_id", _anonymousId)
+                && Same(changed, "session_id", _sessionId == "" ? null : _sessionId);
+            if (!(changed.TryGetValue("context", out var contextValue) && contextValue is IDictionary<string, object> newContext
+                && newContext.TryGetValue("app", out var appValue) && appValue is IDictionary<string, object> newApp
+                && newApp.Count == app.Count && app.All(pair => newApp.TryGetValue(pair.Key, out var value) && Equals(value, pair.Value))))
+                ok = false;
+            var newName = eventName;
+            if (!string.IsNullOrEmpty(eventName))
+            {
+                if (changed.TryGetValue("event", out var name) && name is string text && text.Length >= 1 && text.Length <= 128) newName = text;
+                else ok = false;
+            }
+            var newProperties = properties;
+            if (!changed.TryGetValue("properties", out var props) || props == null) newProperties = new Dictionary<string, object>();
+            else if (props is IDictionary<string, object> map) newProperties = Fit(Scalars(map), "properties");
+            else ok = false;
+            var newTraits = traits;
+            if (traits != null)
+            {
+                if (!changed.TryGetValue("traits", out var t) || t == null) newTraits = new Dictionary<string, object>();
+                else if (t is IDictionary<string, object> traitMap) newTraits = Fit(Scalars(traitMap), "traits");
+                else ok = false;
+            }
+            var newUserId = "";
+            if (changed.TryGetValue("user_id", out var user) && user != null)
+            {
+                if (user is string id && id.Length <= 255) newUserId = id;
+                else ok = false;
+            }
+            if (type == "identify" && newUserId == "") ok = false;
+            if (!ok)
+            {
+                _log.Warning("BeforeSend changed or removed type, message_id, anonymous_id, session_id, context.app, or gave a wrong event, properties, traits or user_id; the original event is sent");
+                return true;
+            }
+            eventName = newName;
+            properties = newProperties;
+            traits = newTraits;
+            userId = newUserId;
+            return true;
+        }
+
+        static bool Same(Dictionary<string, object> values, string key, string expected)
+        {
+            var has = values.TryGetValue(key, out var value) && value != null;
+            if (expected == null) return !has;
+            return has && value is string text && text == expected;
+        }
+
+        void WriteContext(StringBuilder sb)
+        {
+            var app = AppValues();
             sb.Append("{\"app\":");
             Json.WriteObject(sb, app);
             var locale = _env.Locale ?? "";
@@ -815,8 +948,10 @@ namespace ManalensSdk
             sb.Append('}');
         }
 
-        void Enqueue(QueueEntry entry)
+        /// <summary>Queues an event. False when BeforeSend dropped it (entry is null).</summary>
+        bool Enqueue(QueueEntry entry)
         {
+            if (entry == null) return false;
             _queue.Add(entry);
             var overflow = _queue.Count - _maxQueue;
             if (overflow > 0)
@@ -833,6 +968,7 @@ namespace ManalensSdk
                 SaveQueue();
                 _flushRequested = true;
             }
+            return true;
         }
 
         /// <summary>Drops events the collector would refuse as more than 7 days old.</summary>
@@ -1077,9 +1213,18 @@ namespace ManalensSdk
                 // Play mode also logs the editor's own errors (the inspector, search indexing): not the game's.
                 if (ErrorTools.IsEditorStack(item.Stack)) continue;
                 var frame = ErrorTools.FirstFrame(item.Stack);
-                var errorType = item.Kind == LogKind.Exception ? ErrorTools.ExceptionType(item.Message) : "";
+                var exceptionType = item.Kind == LogKind.Exception ? ErrorTools.ExceptionType(item.Message) : "";
+                var errorType = exceptionType;
                 if (errorType == "") errorType = item.Kind == LogKind.Exception ? "exception" : item.Kind == LogKind.Assert ? "assert" : item.Kind == LogKind.Warning ? "log_warning" : "log_error";
-                RecordError(item.Message, new TrackErrorOptions
+                // A log line can hold paths, URLs, emails and tokens: clean it before
+                // it is queued. The fingerprint is computed from the cleaned text, so
+                // the same error on two machines with different user names groups together.
+                // The exception type at the start (for example InvalidOperationException,
+                // 25 characters) is a class name, not a token: it is kept.
+                var message = exceptionType != "" && item.Message.StartsWith(exceptionType, StringComparison.Ordinal)
+                    ? exceptionType + ErrorTools.CleanLogMessage(item.Message.Substring(exceptionType.Length), _homeDirs)
+                    : ErrorTools.CleanLogMessage(item.Message, _homeDirs);
+                RecordError(message, new TrackErrorOptions
                 {
                     Severity = item.Kind == LogKind.Warning ? "warning" : "error",
                     ErrorType = errorType,
@@ -1135,24 +1280,10 @@ namespace ManalensSdk
                 _errorsDropped++;
                 return;
             }
-            if (_beforeSend != null)
-            {
-                Dictionary<string, object> changed;
-                try
-                {
-                    changed = _beforeSend(props);
-                }
-                catch (Exception e)
-                {
-                    _log.Warning("BeforeSend threw (" + e.Message + "); error dropped");
-                    return;
-                }
-                if (changed == null) return;
-                props = Scalars(changed);
-            }
-            if (source != "manual") _autoErrors++;
             Touch();
-            Enqueue(Build("track", "error", props, -1));
+            // BeforeSend runs in Build, after the fingerprint and the limits.
+            if (!Enqueue(Build("track", "error", props, -1))) return;
+            if (source != "manual") _autoErrors++;
             // Keep the error on disk now: a crash can follow it.
             SaveQueue();
         }

@@ -1145,12 +1145,14 @@ namespace Manalens.Tests
         public void BeforeSendCanChangeOrDropAnError()
         {
             var device = new Device();
-            var client = device.Launch(Device.Options(o => o.BeforeSend = props =>
+            var client = device.Launch(Device.Options(o => o.BeforeSend = e =>
             {
+                if ((string)e["event"] != "error") return e;
+                var props = (Dictionary<string, object>)e["properties"];
                 if ((string)props["message"] == "drop me") return null;
                 props["message"] = "redacted";
                 props["extra"] = new object();
-                return props;
+                return e;
             }));
             client.TrackError("drop me");
             client.TrackError("player ana@example.com failed");

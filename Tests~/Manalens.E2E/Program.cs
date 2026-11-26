@@ -192,7 +192,7 @@ static class Program
             }
             case "errors":
             {
-                var client = Make(o => o.BeforeSend = props => (string)props["message"] == "secret error" ? null : props);
+                var client = Make(o => o.BeforeSend = e => e.TryGetValue("properties", out var p) && p is Dictionary<string, object> props && props.TryGetValue("message", out var m) && (string)m == "secret error" ? null : e);
                 Check(client.Init(), "init");
                 client.Track("level_start", Props(("level", 3)));
                 client.TrackError("Save failed for slot 3", new TrackErrorOptions { Severity = "critical", ErrorType = "SaveFailed", Handled = false, Properties = Props(("level", 3)) });
