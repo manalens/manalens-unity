@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.3 (2026-11-26)
 
 - Setup without code (G-2532): **Project Settings > Manalens** (also **Tools > Manalens > Settings**) creates `Assets/Resources/ManalensSettings.asset`. With a key and AutoInitialize on, the SDK starts by itself after the first scene loads. `Manalens.Init(options)` called in `Awake` wins. `Manalens.Init()` with no options uses the asset.
 - The settings page checks the key and has **Send test event** (one `manalens_test_event` with build `editor`, straight to the collector, no install and no session) with the result and the collector's reason. In Play mode it shows tracking on or off, the anonymous and session IDs, the queue, the last send result and the recent events, with **Flush now**. The page is in an editor-only assembly (`Manalens.Editor`), not in player builds.
