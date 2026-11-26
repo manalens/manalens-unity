@@ -2,7 +2,7 @@
 // mode can end without OnQuit() to act as a crash. Prints one line:
 //   MANALENS_RESULT {"ok":true,"anonymous_id":"...","failures":[]}
 //
-//   dotnet run --project "sdks/unity/Tests~/Manalens.E2E" -- \
+//   dotnet run --project "Tests~/Manalens.E2E" -- \
 //     --endpoint=http://127.0.0.1:3293 --publishable-key=mana_pk_... --mode=offline \
 //     --run-id=unity-1 --data-dir=/tmp/ua-unity/offline
 using System;

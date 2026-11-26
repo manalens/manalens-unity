@@ -1,5 +1,5 @@
-# Release on a pushed tag vX.Y.Z (scripts/publish-sdk.sh in the Manalens
-# monorepo pushes main and the tag; this workflow makes the release).
+# Release on a pushed tag vX.Y.Z (CONTRIBUTING.md: bump the version and the
+# CHANGELOG on main, then push the tag; this workflow makes the release).
 #
 # 1. verify: the tag is strict semver, its commit is on main, and the version
 #    equals package.json and the top CHANGELOG.md heading.

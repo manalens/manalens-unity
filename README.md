@@ -87,6 +87,8 @@ itch.io serves HTML5 builds from `html.itch.zone` and `html-classic.itch.zone`. 
 - `Tests~`: .NET projects that build and test the core outside Unity (`dotnet test`), fixtures and a local end-to-end runner. Unity does not import folders that end in `~`.
 - `.github/workflows`: CI (`ci.yml`) runs `dotnet test 'Tests~/Manalens.Core.Tests'`, the Unity layer compile check (`Tests~/UnityStubs`), and the `.meta` check on each pull request. `release.yml` makes a release from a `v*` tag.
 
+To change the SDK, see [CONTRIBUTING.md](CONTRIBUTING.md): how to test, how to release, and the commit rules.
+
 ## Releases
 
 Each [release](https://github.com/manalens/manalens-unity/releases) has `dev.manalens.sdk-<version>.tgz` (the package without `Tests~`, for **Add package from tarball**), `SHA256SUMS`, and the changes from `CHANGELOG.md`. GitHub Actions builds the tarball from the tagged commit and attests its build provenance. To check a download:

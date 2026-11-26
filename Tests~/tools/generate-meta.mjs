@@ -3,8 +3,8 @@
 // a .meta file, so the package must ship them. Folders that end in "~"
 // (Samples~, Tests~) and dotfiles are not imported and get no .meta file.
 //
-//   node "sdks/unity/Tests~/tools/generate-meta.mjs"          # write missing files
-//   node "sdks/unity/Tests~/tools/generate-meta.mjs" --check  # list missing files, exit 1
+//   node "Tests~/tools/generate-meta.mjs"          # write missing files
+//   node "Tests~/tools/generate-meta.mjs" --check  # list missing files, exit 1
 //
 // The GUID is the MD5 of the package path, so it is stable across machines.
 import { createHash } from 'node:crypto';

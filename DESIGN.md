@@ -1,6 +1,6 @@
 # Design notes
 
-The Unity SDK is a C# port of the Godot SDK (`sdks/godot`). Same behavior, same wire format, same event names. This file records what we took from other Unity SDKs and why.
+The Unity SDK is a C# port of the Godot SDK ([manalens-godot](https://github.com/manalens/manalens-godot)). Same behavior, same wire format, same event names. This file records what we took from other Unity SDKs and why.
 
 ## What other Unity SDKs do
 

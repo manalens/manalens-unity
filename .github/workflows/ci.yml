@@ -7,7 +7,7 @@
 # samples compile against UnityEngine stand-ins (Tests~/UnityStubs). Every
 # imported file must have its .meta file (Tests~/tools/generate-meta.mjs).
 # The tests in a Unity player and against a real collector run in the Manalens
-# monorepo, where this SDK is developed.
+# monorepo, against the commit it pins (CONTRIBUTING.md).
 name: CI
 
 on:

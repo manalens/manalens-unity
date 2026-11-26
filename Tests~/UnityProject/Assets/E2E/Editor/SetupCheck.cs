@@ -16,7 +16,7 @@ using UnityEngine;
 ///   4. deletes the asset and exits with 0 or 1.
 ///
 ///   MANALENS_ENDPOINT=http://127.0.0.1:3101 MANALENS_PUBLISHABLE_KEY=mana_pk_... \
-///   Unity -batchmode -projectPath sdks/unity/Tests~/UnityProject -executeMethod SetupCheck.Run -logFile -
+///   Unity -batchmode -projectPath Tests~/UnityProject -executeMethod SetupCheck.Run -logFile -
 ///
 /// Prints MANALENS_SETUP {json}.
 /// </summary>
