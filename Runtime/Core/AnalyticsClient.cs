@@ -20,7 +20,7 @@ namespace ManalensSdk
     public sealed class AnalyticsClient
     {
         public const string LibraryName = "Manalens Unity SDK";
-        public const string LibraryVersion = "0.1.1";
+        public const string LibraryVersion = "0.1.2";
         public const string Engine = "unity";
         public const string StateName = "manalens_state";
         public const string QueueName = "manalens_queue";
@@ -361,7 +361,8 @@ namespace ManalensSdk
                 if (focused)
                 {
                     _focused = true;
-                    Touch();
+                    // Only an open session: after Shutdown() the next event starts a new one.
+                    if (_sessionId != "") Touch();
                     return;
                 }
                 _focused = false;

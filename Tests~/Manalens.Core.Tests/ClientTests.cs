@@ -134,7 +134,7 @@ namespace Manalens.Tests
             {
                 Assert.Equal("track", e.Str("type"));
                 Assert.Equal("app", e.Str("channel"));
-                Assert.Equal("0.1.1", e.Str("version"));
+                Assert.Equal("0.1.2", e.Str("version"));
                 Assert.Matches("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", e.Str("message_id"));
                 Assert.Equal(client.AnonymousId, e.Str("anonymous_id"));
                 Assert.Equal(client.SessionId, e.Str("session_id"));
@@ -528,6 +528,20 @@ namespace Manalens.Tests
             Assert.Equal("session_end", names.Last());
             var starts = device.Transport.AllEvents.Where(e => e.Name() == "session_start").Select(e => e.Str("message_id")).Distinct();
             Assert.Single(starts); // A failed batch is sent again with the same message IDs.
+        }
+
+        [Fact]
+        public void FocusGainedWhileShuttingDownStartsNoNewSession()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            client.BeginShutdown();
+            client.OnFocusChanged(true); // Unity sends focus on the first frames, also after an early Shutdown().
+            Assert.Equal("", client.SessionId);
+            client.Update();
+            var starts = device.Transport.AllEvents.Where(e => e.Name() == "session_start").Select(e => e.Str("message_id")).Distinct();
+            Assert.Single(starts);
+            Assert.Equal("session_end", device.Transport.Names.Last());
         }
 
         [Fact]
