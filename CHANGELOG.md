@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Console values (P-2776). `context.app.platform` is now `ps5` (PS5), `xbox_series` (GameCoreXboxSeries), `xbox_one` (GameCoreXboxOne and the old XboxOne player), or `switch` (Switch) instead of `other`. New option `Platform`: empty (default) detects the platform; set it when the detection cannot name the console, for example `"switch2"` in a Nintendo Switch 2 build. `Storefront` also accepts `psn`, `xbox`, and `nintendo`.
+
 ## 0.1.5 (2026-11-26)
 
 - Dedicated server builds (G-2533): a player built with the `UNITY_SERVER` define, or a player started with `-batchmode`, sends no `game_open`, `session_start`, `session_end`, or `app_unclean_exit`, and does not count as an install. The SDK logs one line that says why. `Track()` and `Identify()` still work. The Unity Editor is never a server build, also in batch mode (test runs, builds), so Play mode and **Send test event** do not change. The new option `TrackServerBuilds` (default `false`, also on the settings asset) sends the automatic events from a server build. New `AppEnvironment.IsServerBuild` for a custom engine layer. See the new docs page "Multiplayer and dedicated servers".

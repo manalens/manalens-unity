@@ -35,7 +35,7 @@ namespace ManalensSdk
         [Tooltip("Your build number or label, for example 571 or dev.")]
         public string Build = "";
 
-        [Tooltip("steam, itch, epic, gog, app_store, play or other. Empty: not sent.")]
+        [Tooltip("steam, itch, epic, gog, app_store, play, psn, xbox, nintendo or other. Empty: not sent.")]
         public string Storefront = "";
 
         [Tooltip("A dedicated server build (UNITY_SERVER, or a player in batch mode) is not a player. Off: it sends no game_open, sessions or unclean exits. Track() still works.")]

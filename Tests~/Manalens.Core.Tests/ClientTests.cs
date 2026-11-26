@@ -90,6 +90,38 @@ namespace Manalens.Tests
             Assert.True(device.Log.Has("Storefront must be one of"));
         }
 
+        [Theory]
+        [InlineData("psn")]
+        [InlineData("xbox")]
+        [InlineData("nintendo")]
+        public void ConsoleStorefrontsAreSent(string storefront)
+        {
+            var device = new Device();
+            var client = device.Launch(Device.Options(o => o.Storefront = storefront));
+            client.Update();
+            Assert.Equal(storefront, device.Transport.AllEvents[0].GetProperty("context").GetProperty("app").Str("storefront"));
+            Assert.False(device.Log.Has("Storefront must be one of"));
+        }
+
+        [Fact]
+        public void PlatformOptionNamesAConsoleBuild()
+        {
+            var device = new Device();
+            var client = device.Launch(Device.Options(o => o.Platform = "switch2"));
+            client.Update();
+            Assert.All(device.Transport.AllEvents, e => Assert.Equal("switch2", e.GetProperty("context").GetProperty("app").Str("platform")));
+        }
+
+        [Fact]
+        public void AWrongPlatformOptionKeepsTheDetectedPlatform()
+        {
+            var device = new Device();
+            var client = device.Launch(Device.Options(o => o.Platform = "ps4"));
+            client.Update();
+            Assert.Equal("windows", device.Transport.AllEvents[0].GetProperty("context").GetProperty("app").Str("platform"));
+            Assert.True(device.Log.Has("Platform must be one of"));
+        }
+
         [Fact]
         public void AppVersionDefaultsToTheEngineVersion()
         {
@@ -1259,8 +1291,13 @@ namespace Manalens.Tests
         [InlineData("IPhonePlayer", "ios")]
         [InlineData("WebGLPlayer", "web")]
         [InlineData("tvOS", "other")]
-        [InlineData("PS5", "other")]
-        [InlineData("Switch", "other")]
+        [InlineData("PS5", "ps5")]
+        [InlineData("GameCoreXboxSeries", "xbox_series")]
+        [InlineData("GameCoreXboxOne", "xbox_one")]
+        [InlineData("XboxOne", "xbox_one")]
+        [InlineData("Switch", "switch")]
+        [InlineData("Switch2", "switch2")]
+        [InlineData("PS4", "other")]
         public void PlatformMapping(string unity, string expected) => Assert.Equal(expected, Platforms.FromRuntimePlatform(unity));
 
         [Fact]

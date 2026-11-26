@@ -91,7 +91,7 @@ namespace ManalensSdk
     /// <summary>What the engine layer knows about the running build.</summary>
     public sealed class AppEnvironment
     {
-        /// <summary>windows, macos, linux, android, ios, web or other.</summary>
+        /// <summary>windows, macos, linux, android, ios, web, ps5, xbox_series, xbox_one, switch, switch2 or other.</summary>
         public string Platform = "other";
         /// <summary>For example en-US. Null or empty: not sent.</summary>
         public string Locale;

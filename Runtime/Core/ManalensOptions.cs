@@ -19,8 +19,15 @@ namespace ManalensSdk
         public string AppVersion;
         /// <summary>Up to 64 characters, for example a build number.</summary>
         public string Build = "";
-        /// <summary>steam, itch, epic, gog, app_store, play or other.</summary>
+        /// <summary>steam, itch, epic, gog, app_store, play, psn, xbox, nintendo or other.</summary>
         public string Storefront = "";
+        /// <summary>
+        /// Empty (default): detected from Application.platform. Set it when the
+        /// detection cannot name the console, for example "switch2" in a
+        /// Nintendo Switch 2 build. Values: windows, macos, linux, web, android,
+        /// ios, ps5, xbox_series, xbox_one, switch, switch2 or other.
+        /// </summary>
+        public string Platform = "";
         /// <summary>true: no events and no persistent ID until SetConsent(true).</summary>
         public bool ConsentRequired;
         public double FlushIntervalSeconds = 10;

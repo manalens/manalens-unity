@@ -42,7 +42,9 @@ namespace ManalensSdk
         public const double MaxRetryAfterSeconds = 3600;
         /// <summary>Identity handoff: the URL parameter that the web SDK reads.</summary>
         public const string HandoffParam = "mana_hid";
-        public static readonly string[] Storefronts = { "steam", "itch", "epic", "gog", "app_store", "play", "other" };
+        /// <summary>The values of ManalensOptions.Platform (the collector platforms).</summary>
+        public static readonly string[] PlatformValues = { "windows", "macos", "linux", "web", "android", "ios", "ps5", "xbox_series", "xbox_one", "switch", "switch2", "other" };
+        public static readonly string[] Storefronts = { "steam", "itch", "epic", "gog", "app_store", "play", "psn", "xbox", "nintendo", "other" };
         public static readonly string[] Severities = { "debug", "info", "warning", "error", "critical" };
         /// <summary>Error limits (as the Godot SDK and Sentry): one fingerprint at most once a second, at most 20 errors in 10 seconds.</summary>
         public const long ErrorDedupeMs = 1000;
@@ -95,7 +97,7 @@ namespace ManalensSdk
         string _anonymousId = "", _userId = "", _sessionId = "";
         double _sessionStartedAt, _lastActivityAt, _nextTickAt, _backoffUntil;
         int _flushAt = 20, _maxQueue = 1000, _failures;
-        string _appVersion = "", _build = "", _storefront = "", _url = "";
+        string _appVersion = "", _build = "", _storefront = "", _platform = "other", _url = "";
         readonly List<QueueEntry> _queue = new List<QueueEntry>();
         bool _queueDirty, _sending, _flushRequested;
         string[] _deferredIdentify;
@@ -190,6 +192,12 @@ namespace ManalensSdk
                     _log.Warning("Storefront must be one of " + string.Join(", ", Storefronts) + "; ignored");
                     _storefront = "";
                 }
+                _platform = _env.Platform ?? "other";
+                var platform = _options.Platform ?? "";
+                if (platform != "" && Array.IndexOf(PlatformValues, platform) < 0)
+                    _log.Warning("Platform must be one of " + string.Join(", ", PlatformValues) + "; detected instead");
+                else if (platform != "")
+                    _platform = platform;
                 _initialized = true;
                 _serverQuiet = _env.IsServerBuild && !_options.TrackServerBuilds;
                 if (_serverQuiet) _log.Info("server build (UNITY_SERVER or batch mode); no game_open, session or unclean exit events. Set TrackServerBuilds to send them");
@@ -540,7 +548,7 @@ namespace ManalensSdk
                 // Sentry "abnormal" session). A game the OS closed in the background
                 // is not a crash. On web a closed or reloaded tab has no quit event,
                 // so every relaunch would look like a crash: no crash detection there.
-                if (!_serverQuiet && !_state.GetBool("session.exited", false) && _state.GetBool("session.focused", true) && _env.Platform != "web")
+                if (!_serverQuiet && !_state.GetBool("session.exited", false) && _state.GetBool("session.focused", true) && _platform != "web")
                 {
                     var crash = new Dictionary<string, object> { ["previous_session_id"] = previous };
                     var build = _state.Get("session.build");
@@ -822,7 +830,7 @@ namespace ManalensSdk
         {
             var app = new List<KeyValuePair<string, object>>
             {
-                new KeyValuePair<string, object>("platform", _env.Platform ?? "other"),
+                new KeyValuePair<string, object>("platform", _platform),
                 new KeyValuePair<string, object>("engine", Engine),
             };
             if (_appVersion != "") app.Add(new KeyValuePair<string, object>("app_version", _appVersion));
