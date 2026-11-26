@@ -51,6 +51,15 @@ The SDK sends `game_open`, `session_start`, `session_end`, captured exceptions a
 
 The `Basic` sample (Package Manager > Manalens > Samples) has a scene with buttons that send an event and an error.
 
+## WebGL
+
+A WebGL build runs in a browser, so its requests carry an `Origin` header. The collector accepts it when the page is on:
+
+- your project domain or a subdomain (for example `play.example.com` for `example.com`);
+- a host in **Project settings > Allowed origins**.
+
+itch.io serves HTML5 builds from `html.itch.zone` and `html-classic.itch.zone`. A new project lists `*.itch.zone`, so an itch.io build works with no change. If you removed it, add `*.itch.zone` again (or click **Restore default**). For another portal, add its host (for example `*.crazygames.com`). A page on any other host gets 403. See [Allowed origins](https://docs.manalens.dev/sdks/app-events#allowed-origins).
+
 ## Layout
 
 - `Runtime/Core`: the engine-independent SDK (no UnityEngine reference): envelopes, identity, sessions, queue, retries, consent, errors.
