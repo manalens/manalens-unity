@@ -538,6 +538,9 @@ namespace ManalensSdk
                 ["first_open_at"] = _state.Get("identity.first_open_at", Ids.Iso(now)),
             }, -1));
             SaveState();
+            // Write game_open (the install signal) and app_unclean_exit to disk
+            // before any send: a process killed before the next save would lose them.
+            SaveQueue();
             if (_deferredIdentify != null)
             {
                 var userId = _deferredIdentify[0];
@@ -602,7 +605,8 @@ namespace ManalensSdk
         {
             if (!_identityActive) return;
             // While the game has focus the player is active: keep the session alive.
-            if (_focused) Touch();
+            // Only an open one: after Shutdown() a tick must not start a new session.
+            if (_focused && _sessionId != "") Touch();
             SaveSession();
             SaveQueue();
             _flushRequested = true;

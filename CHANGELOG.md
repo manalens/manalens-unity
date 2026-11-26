@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fixed: a quit added an empty session. While `Shutdown()` waited for the last send, the flush timer could fire and start a new session after `session_end`. So each quit counted one extra session with no events. Found in the `with-unity` example run (P-2676).
+- Fixed: an install could be lost. `game_open` (with `is_first_open`) and `app_unclean_exit` stayed only in memory until the next save of the queue (a full batch, the flush timer, focus loss, or quit). A first launch with no network that was killed before then lost the install, and the next launch sent `is_first_open` false. Now the queue is written to disk as soon as these events are queued, before any send (P-2773).
+
 Fixes from the first test in a real Unity Editor and real players (Unity 6.6: Play mode, a macOS Mono player, a WebGL IL2CPP build):
 
 - WebGL: no `app_unclean_exit` after a closed or reloaded tab. A tab has no quit event, so every reload was reported as a crash.

@@ -498,6 +498,67 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void AFirstLaunchKilledOfflineBeforeAnySaveKeepsTheInstall()
+        {
+            var device = new Device();
+            device.Launch(); // First launch, offline. Killed before any send, tick, focus loss or quit.
+            Assert.Contains("game_open", device.Storage.Blobs[AnalyticsClient.QueueName]);
+            device.Clock.Advance(3600);
+            var next = device.Launch();
+            next.Update();
+            var opens = device.Transport.AllEvents.Where(e => e.Name() == "game_open").ToList();
+            Assert.Equal(2, opens.Count);
+            Assert.True(opens[0].Props().GetProperty("is_first_open").GetBoolean());
+            Assert.Equal("2027-01-15T08:00:00.000Z", opens[0].Str("original_timestamp"));
+            Assert.False(opens[1].Props().GetProperty("is_first_open").GetBoolean());
+            Assert.Equal(opens[0].Str("anonymous_id"), opens[1].Str("anonymous_id"));
+        }
+
+        [Fact]
+        public void ATickWhileShuttingDownStartsNoNewSession()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            device.Transport.Statuses.Enqueue(0); // The first send fails, so the shutdown waits.
+            client.BeginShutdown();
+            device.Clock.Advance(11); // Past the 10 s tick, still waiting.
+            client.Update();
+            client.Update();
+            var names = device.Transport.Names;
+            Assert.Equal("session_end", names.Last());
+            var starts = device.Transport.AllEvents.Where(e => e.Name() == "session_start").Select(e => e.Str("message_id")).Distinct();
+            Assert.Single(starts); // A failed batch is sent again with the same message IDs.
+        }
+
+        [Fact]
+        public void TheUncleanExitIsSavedBeforeAnySend()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            client.Update();
+            device.Clock.Advance(60);
+            device.Launch(); // The first process was killed; this one is killed too before any save.
+            Assert.Contains("app_unclean_exit", device.Storage.Blobs[AnalyticsClient.QueueName]);
+        }
+
+        [Fact]
+        public void OfflineEventsSentDaysLaterKeepTheTimeTheyHappened()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            device.Transport.Statuses.Enqueue(0);
+            client.Update(); // Offline.
+            device.Clock.Advance(90);
+            client.Track("offline_event");
+            client.OnQuit();
+            device.Clock.Advance(3 * 24 * 3600); // Launched again 3 days later, online.
+            var next = device.Launch();
+            next.Update();
+            var sent = device.Transport.AllEvents.Single(e => e.Name() == "offline_event");
+            Assert.Equal("2027-01-15T08:01:30.000Z", sent.Str("original_timestamp"));
+        }
+
+        [Fact]
         public void EventsOlderThanSevenDaysAreDroppedOnLoad()
         {
             var device = new Device();
