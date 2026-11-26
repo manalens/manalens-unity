@@ -121,6 +121,8 @@ namespace Manalens.Tests
         public bool OnlyITransport;
         /// <summary>The device clock's UTC offset in minutes. Null: the SDK sends none.</summary>
         public int? UtcOffsetMinutes;
+        /// <summary>A dedicated server player (UNITY_SERVER or batch mode).</summary>
+        public bool ServerBuild;
 
         public static ManalensOptions Options(Action<ManalensOptions> change = null)
         {
@@ -134,7 +136,7 @@ namespace Manalens.Tests
         {
             Transport = new FakeTransport();
             Log = new ListLog();
-            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes }, Storage, OnlyITransport ? new OnlyITransport(Transport) : (ITransport)Transport, Clock, Log)
+            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes, IsServerBuild = ServerBuild }, Storage, OnlyITransport ? new OnlyITransport(Transport) : (ITransport)Transport, Clock, Log)
             {
                 Random = () => 0.5,
             };

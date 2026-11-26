@@ -84,6 +84,8 @@ namespace ManalensSdk
         public Func<string> NewId = Ids.NewUuid;
 
         bool _initialized, _disabled, _identityActive, _focused = true;
+        /// <summary>A server build without TrackServerBuilds: no automatic client events.</summary>
+        bool _serverQuiet;
         StateFile _state = new StateFile();
         bool? _pendingConsent;
         // Fail closed: the state file exists but could not be read, or could not
@@ -189,6 +191,8 @@ namespace ManalensSdk
                     _storefront = "";
                 }
                 _initialized = true;
+                _serverQuiet = _env.IsServerBuild && !_options.TrackServerBuilds;
+                if (_serverQuiet) _log.Info("server build (UNITY_SERVER or batch mode); no game_open, session or unclean exit events. Set TrackServerBuilds to send them");
                 LoadState();
                 _nextTickAt = Now() + TickInterval();
                 if (_pendingConsent.HasValue)
@@ -536,7 +540,7 @@ namespace ManalensSdk
                 // Sentry "abnormal" session). A game the OS closed in the background
                 // is not a crash. On web a closed or reloaded tab has no quit event,
                 // so every relaunch would look like a crash: no crash detection there.
-                if (!_state.GetBool("session.exited", false) && _state.GetBool("session.focused", true) && _env.Platform != "web")
+                if (!_serverQuiet && !_state.GetBool("session.exited", false) && _state.GetBool("session.focused", true) && _env.Platform != "web")
                 {
                     var crash = new Dictionary<string, object> { ["previous_session_id"] = previous };
                     var build = _state.Get("session.build");
@@ -548,11 +552,14 @@ namespace ManalensSdk
                 EndSession(_lastActivityAt);
             }
             StartSession(now);
-            Enqueue(Build("track", "game_open", new Dictionary<string, object>
+            if (!_serverQuiet)
             {
-                ["is_first_open"] = firstOpen,
-                ["first_open_at"] = _state.Get("identity.first_open_at", Ids.Iso(now)),
-            }, -1));
+                Enqueue(Build("track", "game_open", new Dictionary<string, object>
+                {
+                    ["is_first_open"] = firstOpen,
+                    ["first_open_at"] = _state.Get("identity.first_open_at", Ids.Iso(now)),
+                }, -1));
+            }
             SaveState();
             // Write game_open (the install signal) and app_unclean_exit to disk
             // before any send: a process killed before the next save would lose them.
@@ -575,7 +582,7 @@ namespace ManalensSdk
             _lastActivityAt = at;
             _autoErrors = 0;
             SaveSession();
-            Enqueue(Build("track", "session_start", new Dictionary<string, object>(), at));
+            if (!_serverQuiet) Enqueue(Build("track", "session_start", new Dictionary<string, object>(), at));
         }
 
         void EndSession(double at)
@@ -588,7 +595,7 @@ namespace ManalensSdk
                 ended["errors_dropped"] = _errorsDropped;
                 _errorsDropped = 0;
             }
-            Enqueue(Build("track", "session_end", ended, at));
+            if (!_serverQuiet) Enqueue(Build("track", "session_end", ended, at));
             _sessionId = "";
             _state.RemovePrefix("session.");
             SaveState();

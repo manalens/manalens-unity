@@ -38,6 +38,9 @@ namespace ManalensSdk
         [Tooltip("steam, itch, epic, gog, app_store, play or other. Empty: not sent.")]
         public string Storefront = "";
 
+        [Tooltip("A dedicated server build (UNITY_SERVER, or a player in batch mode) is not a player. Off: it sends no game_open, sessions or unclean exits. Track() still works.")]
+        public bool TrackServerBuilds;
+
         [Tooltip("Log each queued event and each send in the Console.")]
         public bool Debug;
 
@@ -53,6 +56,7 @@ namespace ManalensSdk
                 AppVersion = string.IsNullOrWhiteSpace(AppVersion) ? null : AppVersion.Trim(),
                 Build = (Build ?? "").Trim(),
                 Storefront = (Storefront ?? "").Trim(),
+                TrackServerBuilds = TrackServerBuilds,
                 Debug = Debug,
             };
         }

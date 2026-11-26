@@ -18,7 +18,7 @@ namespace ManalensSdk.Editor
         const string AssetPath = "Assets/Resources/ManalensSettings.asset";
         const string AppUrl = "https://app.manalens.dev/";
         const string DocsUrl = "https://docs.manalens.dev/sdks/unity";
-        static readonly string[] Fields = { "PublishableKey", "Endpoint", "AutoInitialize", "ConsentRequired", "EnabledInEditor", "AppVersion", "Build", "Storefront", "Debug" };
+        static readonly string[] Fields = { "PublishableKey", "Endpoint", "AutoInitialize", "ConsentRequired", "EnabledInEditor", "AppVersion", "Build", "Storefront", "TrackServerBuilds", "Debug" };
 
         static UnityWebRequest _request;
         static string _testResult = "";

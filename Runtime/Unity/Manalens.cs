@@ -98,6 +98,7 @@ namespace ManalensSdk
                 Locale = CurrentLocale(),
                 UtcOffsetMinutes = CurrentUtcOffsetMinutes(),
                 DefaultAppVersion = Application.version,
+                IsServerBuild = IsServerBuild(),
             };
 #if UNITY_WEBGL && !UNITY_EDITOR
             IStorage storage = BrowserStorage.Create();
@@ -222,6 +223,21 @@ namespace ManalensSdk
         {
             try { return (int)Math.Round(TimeZoneInfo.Local.GetUtcOffset(DateTime.UtcNow).TotalMinutes); }
             catch (Exception) { return null; }
+        }
+
+        /// <summary>
+        /// A dedicated server player: a build with the UNITY_SERVER define, or a
+        /// player started with -batchmode. The editor is never a server build,
+        /// also not in batch mode (test runs, builds), so its Play mode and the
+        /// settings page work as before.
+        /// </summary>
+        static bool IsServerBuild()
+        {
+#if UNITY_SERVER && !UNITY_EDITOR
+            return true;
+#else
+            return !Application.isEditor && Application.isBatchMode;
+#endif
         }
 
         static string CurrentLocale()

@@ -71,6 +71,9 @@ public sealed class E2ERunner : MonoBehaviour
             Storefront = "itch",
             Enabled = true,
             FlushIntervalSeconds = 1,
+            // The player runs with -batchmode, which the SDK treats as a server
+            // build (G-2533). Keep the client events, so the checks do not change.
+            TrackServerBuilds = true,
         };
         change?.Invoke(options);
         return options;

@@ -894,6 +894,67 @@ namespace Manalens.Tests
         }
     }
 
+    /// <summary>A dedicated server build is not a player (G-2533).</summary>
+    public class ServerBuildTests
+    {
+        static readonly string[] Automatic = { "game_open", "session_start", "session_end", "app_unclean_exit" };
+
+        /// <summary>Two launches of a server: the first ends without a quit (a crash), the second quits.</summary>
+        static List<string> RunServer(Device device, bool trackServerBuilds)
+        {
+            device.ServerBuild = true;
+            var names = new List<string>();
+            var options = Device.Options(o => o.TrackServerBuilds = trackServerBuilds);
+            var first = device.Launch(options);
+            first.Track("match_end", new Dictionary<string, object> { ["winner"] = "red" });
+            first.SendNow();
+            names.AddRange(device.Transport.Names);
+            device.Clock.Advance(60);
+            var second = device.Launch(options);
+            second.Identify("player-7");
+            second.Track("match_end", new Dictionary<string, object> { ["winner"] = "blue" });
+            second.BeginShutdown();
+            second.SendNow();
+            second.OnQuit();
+            names.AddRange(device.Transport.Names);
+            return names;
+        }
+
+        [Fact]
+        public void AServerBuildSendsNoClientEventsAndNoInstall()
+        {
+            var device = new Device();
+            var names = RunServer(device, trackServerBuilds: false);
+            foreach (var name in Automatic) Assert.DoesNotContain(name, names);
+            Assert.Equal(new[] { "match_end", "identify", "match_end" }, names);
+            Assert.True(device.Log.Has("server build"), string.Join("\n", device.Log.Lines));
+            // Track() still has an anonymous ID and a session ID.
+            var events = device.Transport.AllEvents;
+            Assert.All(events, e => Assert.False(string.IsNullOrEmpty(e.Str("anonymous_id"))));
+            Assert.All(events, e => Assert.False(string.IsNullOrEmpty(e.Str("session_id"))));
+        }
+
+        [Fact]
+        public void AServerBuildWithTrackServerBuildsSendsTheClientEvents()
+        {
+            var device = new Device();
+            var names = RunServer(device, trackServerBuilds: true);
+            foreach (var name in Automatic) Assert.Contains(name, names);
+            Assert.Equal(2, names.Count(n => n == "game_open"));
+            Assert.False(device.Log.Has("server build"));
+        }
+
+        [Fact]
+        public void AClientBuildIgnoresTrackServerBuilds()
+        {
+            var device = new Device();
+            var client = device.Launch(Device.Options(o => o.TrackServerBuilds = false));
+            client.SendNow();
+            Assert.Equal(new[] { "session_start", "game_open" }, device.Transport.Names);
+            Assert.False(device.Log.Has("server build"));
+        }
+    }
+
     public class ConsentTests
     {
         [Fact]

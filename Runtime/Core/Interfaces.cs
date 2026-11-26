@@ -99,6 +99,12 @@ namespace ManalensSdk
         public int? UtcOffsetMinutes;
         /// <summary>Used when the options have no AppVersion (Unity: Application.version).</summary>
         public string DefaultAppVersion;
+        /// <summary>
+        /// true in a dedicated server player: a build with the UNITY_SERVER
+        /// define, or a player started in batch mode (Application.isBatchMode).
+        /// Never true in the Unity Editor, also not in editor batch runs (tests, builds).
+        /// </summary>
+        public bool IsServerBuild;
     }
 
     /// <summary>The kind of a captured engine log message.</summary>

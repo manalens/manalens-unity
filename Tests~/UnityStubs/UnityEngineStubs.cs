@@ -23,6 +23,7 @@ namespace UnityEngine
         public static string version => "1.0";
         public static string persistentDataPath => "";
         public static bool isEditor => false;
+        public static bool isBatchMode => false;
         public static SystemLanguage systemLanguage => SystemLanguage.English;
         public static void Quit() { }
         public static void OpenURL(string url) { }

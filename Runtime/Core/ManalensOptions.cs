@@ -50,6 +50,14 @@ namespace ManalensSdk
         /// record events inside it: they are dropped.
         /// </summary>
         public Func<Dictionary<string, object>, Dictionary<string, object>> BeforeSend;
+        /// <summary>
+        /// A dedicated server build (UNITY_SERVER, or a player in batch mode) is
+        /// not a player. false (default): on a server build the SDK sends no
+        /// game_open, session_start, session_end or app_unclean_exit, so the
+        /// server does not count as an install or a session. Track() and
+        /// Identify() still work. true: a server build sends them as a client does.
+        /// </summary>
+        public bool TrackServerBuilds;
         /// <summary>Log each queued event and each failed send.</summary>
         public bool Debug;
     }
