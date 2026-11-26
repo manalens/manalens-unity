@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Each request sends `sent_at`, the device clock at the time of the send. The collector uses it to correct the event times, so a device clock that is fast or slow no longer gives wrong times or refused events (P-2799).
+
 ## 0.1.3 (2026-11-26)
 
 - Setup without code (G-2532): **Project Settings > Manalens** (also **Tools > Manalens > Settings**) creates `Assets/Resources/ManalensSettings.asset`. With a key and AutoInitialize on, the SDK starts by itself after the first scene loads. `Manalens.Init(options)` called in `Awake` wins. `Manalens.Init()` with no options uses the asset.

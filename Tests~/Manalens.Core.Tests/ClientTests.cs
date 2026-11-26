@@ -374,6 +374,23 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void EachSendCarriesTheDeviceClockOfThatSendAsSentAt()
+        {
+            // P-2799: the collector corrects event times with sent_at, so a retry sends its own clock time.
+            var device = new Device();
+            var client = device.Launch();
+            device.Transport.Statuses.Enqueue(503);
+            client.Update();
+            client.SendNow();
+            device.Clock.Advance(1.6);
+            client.Update();
+            var sentAt = device.Transport.Requests.Select(r => JsonDocument.Parse(r.Body).RootElement.GetProperty("sent_at").GetString()).ToList();
+            Assert.Equal("2027-01-15T08:00:00.000Z", sentAt[0]);
+            Assert.Equal("2027-01-15T08:00:01.600Z", sentAt[1]);
+            Assert.Equal("2027-01-15T08:00:00.000Z", device.Transport.Requests[1].Events[0].Str("original_timestamp"));
+        }
+
+        [Fact]
         public void BackoffDoublesWithJitterUpToFiveMinutes()
         {
             var device = new Device();

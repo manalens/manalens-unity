@@ -868,7 +868,10 @@ namespace ManalensSdk
                 body.Append(_queue[i].Json);
                 ids.Add(_queue[i].MessageId);
             }
-            body.Append("]}");
+            // sent_at: the device clock now. The collector corrects the event times with it, so a wrong clock gives right times (P-2799).
+            body.Append("],\"sent_at\":");
+            Json.WriteString(body, Ids.Iso(Now()));
+            body.Append('}');
             var headers = new Dictionary<string, string>
             {
                 ["Content-Type"] = "application/json",
