@@ -20,7 +20,7 @@ CI (`.github/workflows/ci.yml`) runs the same three steps on each pull request.
 
 ## Release
 
-1. In a pull request, set the new version in `package.json` and add a `## X.Y.Z` section at the top of `CHANGELOG.md`. CI checks that the two are the same.
+1. In a pull request, set the new version in `package.json` and put a `## X.Y.Z (YYYY-MM-DD)` section at the top of `CHANGELOG.md` (rename `## Unreleased` if it is there). CI checks that the two are the same. Between releases, CI allows a `## Unreleased` section above the newest version; the release workflow does not.
 2. Merge it to `main`.
 3. Tag that commit and push the tag:
 

@@ -53,7 +53,9 @@ jobs:
       - name: Check the version and the CHANGELOG
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          TOP=$(sed -n 's/^## \([^ ]*\).*/\1/p' CHANGELOG.md | head -n 1)
+          # An "## Unreleased" section may sit above the newest version between releases.
+          # release.yml requires the version heading at the top.
+          TOP=$(sed -n 's/^## \([^ ]*\).*/\1/p' CHANGELOG.md | grep -vx Unreleased | head -n 1)
           echo "package.json: $VERSION, CHANGELOG top heading: $TOP"
           test "$VERSION" = "$TOP" || { echo "::error::package.json ($VERSION) and the top CHANGELOG heading ($TOP) differ"; exit 1; }
 
