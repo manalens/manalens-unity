@@ -1,0 +1,67 @@
+# Unity SDK checks on every push to main and every pull request.
+# The release workflow (release.yml) calls this workflow too, so a release runs
+# the same tests.
+#
+# The SDK core is plain C# (Runtime/Core), so it builds and runs its tests on
+# .NET without Unity (Tests~/Manalens.Core.Tests). The Unity layer and the
+# samples compile against UnityEngine stand-ins (Tests~/UnityStubs). Every
+# imported file must have its .meta file (Tests~/tools/generate-meta.mjs).
+# The tests in a Unity player and against a real collector run in the Manalens
+# monorepo, where this SDK is developed.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: .NET tests, Unity layer compile, .meta check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '11.0.x'
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.20.0'
+          package-manager-cache: false
+
+      - name: Check the version and the CHANGELOG
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TOP=$(sed -n 's/^## \([^ ]*\).*/\1/p' CHANGELOG.md | head -n 1)
+          echo "package.json: $VERSION, CHANGELOG top heading: $TOP"
+          test "$VERSION" = "$TOP" || { echo "::error::package.json ($VERSION) and the top CHANGELOG heading ($TOP) differ"; exit 1; }
+
+      - name: Core tests
+        run: dotnet test 'Tests~/Manalens.Core.Tests'
+
+      - name: Unity layer and samples compile check
+        run: dotnet build 'Tests~/UnityStubs' --nologo -v q
+
+      - name: Every imported file has a .meta file
+        run: node 'Tests~/tools/generate-meta.mjs' --check
