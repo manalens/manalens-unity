@@ -46,6 +46,9 @@ namespace ManalensSdk
         public static readonly string[] PlatformValues = { "windows", "macos", "linux", "web", "android", "ios", "ps5", "xbox_series", "xbox_one", "switch", "switch2", "other" };
         public static readonly string[] Storefronts = { "steam", "itch", "epic", "gog", "app_store", "play", "psn", "xbox", "nintendo", "other" };
         public static readonly string[] Severities = { "debug", "info", "warning", "error", "critical" };
+        /// <summary>The <c>source</c> of an error: a TrackError call, or an automatic capture.</summary>
+        public const string SourceManual = "manual";
+        public const string SourceAuto = "auto";
         /// <summary>Error limits (as the Godot SDK and Sentry): one fingerprint at most once a second, at most 20 errors in 10 seconds.</summary>
         public const long ErrorDedupeMs = 1000;
         public const long ErrorWindowMs = 10000;
@@ -227,7 +230,7 @@ namespace ManalensSdk
                     _platform = platform;
                 _initialized = true;
                 _serverQuiet = _env.IsServerBuild && !_options.TrackServerBuilds;
-                if (_serverQuiet) _log.Info("server build (UNITY_SERVER or batch mode); no game_open, session or unclean exit events. Set TrackServerBuilds to send them");
+                if (_serverQuiet) _log.Info("server build (UNITY_SERVER or batch mode); no game_open, session or app_crash events. Set TrackServerBuilds to send them");
                 LoadState();
                 _nextTickAt = Now() + TickInterval();
                 if (_pendingConsent.HasValue)
@@ -260,7 +263,7 @@ namespace ManalensSdk
         /// <summary>Records an error as an error event. See TrackErrorOptions.</summary>
         public void TrackError(string message, TrackErrorOptions options = null)
         {
-            lock (_gate) RecordError(message ?? "", options ?? new TrackErrorOptions(), "manual");
+            lock (_gate) RecordError(message ?? "", options ?? new TrackErrorOptions(), SourceManual);
         }
 
         /// <summary>Records a caught exception as an error event: its type, message, stack and place in the code.</summary>
@@ -675,7 +678,7 @@ namespace ManalensSdk
                     var version = _state.Get("session.app_version");
                     if (build != "") crash["previous_build"] = build;
                     if (version != "") crash["previous_app_version"] = version;
-                    Enqueue(Build("track", "app_unclean_exit", crash, _lastActivityAt));
+                    Enqueue(Build("track", "app_crash", crash, _lastActivityAt));
                 }
                 EndSession(_lastActivityAt);
             }
@@ -689,7 +692,7 @@ namespace ManalensSdk
                 }, -1));
             }
             SaveState();
-            // Write game_open (the install signal) and app_unclean_exit to disk
+            // Write game_open (the install signal) and app_crash to disk
             // before any send: a process killed before the next save would lose them.
             SaveQueue();
             if (_deferredIdentify != null)
@@ -1377,7 +1380,7 @@ namespace ManalensSdk
                     Line = frame.Line,
                     Function = frame.Function,
                     Properties = new Dictionary<string, object> { ["log_type"] = item.Kind.ToString().ToLowerInvariant() },
-                }, "unity_log");
+                }, SourceAuto);
             }
         }
 
@@ -1386,7 +1389,7 @@ namespace ManalensSdk
             if (_disabled) return;
             if (!_initialized || !_identityActive)
             {
-                if (source == "manual") ReadyToRecord(); // Warns before Init().
+                if (source == SourceManual) ReadyToRecord(); // Warns before Init().
                 return;
             }
             var severity = Array.IndexOf(Severities, options.Severity) >= 0 ? options.Severity : "error";
@@ -1426,7 +1429,7 @@ namespace ManalensSdk
             Touch();
             // BeforeSend runs in Build, after the fingerprint and the limits.
             if (!Enqueue(Build("track", "error", props, -1))) return;
-            if (source != "manual") _autoErrors++;
+            if (source == SourceAuto) _autoErrors++;
             // Keep the error on disk now: a crash can follow it.
             SaveQueue();
         }
@@ -1438,7 +1441,7 @@ namespace ManalensSdk
             if (_errorSeen.TryGetValue(fingerprint, out var last) && now - last < ErrorDedupeMs) return false;
             _errorTimes.RemoveAll(at => now - at >= ErrorWindowMs);
             if (_errorTimes.Count >= ErrorWindowMax) return false;
-            if (source != "manual" && _autoErrors >= _options.MaxAutoErrorsPerSession) return false;
+            if (source == SourceAuto && _autoErrors >= _options.MaxAutoErrorsPerSession) return false;
             _errorSeen[fingerprint] = now;
             _errorTimes.Add(now);
             if (_errorSeen.Count > 500) _errorSeen.Clear();

@@ -40,7 +40,7 @@ namespace Manalens.Tests
             device.Clock.Advance(10);
             first.Update(); // The tick saves the session; then the process dies.
             var bodies = device.Transport.Requests.Select(r => r.Body).ToList();
-            // Launch 2: app_unclean_exit and session_end of the crashed session, then a clean shutdown.
+            // Launch 2: app_crash and session_end of the crashed session, then a clean shutdown.
             device.Clock.Advance(120);
             var second = device.Launch(Device.Options(o => { o.Build = "572"; o.Storefront = "itch"; o.AppVersion = "1.4.1-beta.2+572"; }));
             second.Track("level_complete", new Dictionary<string, object> { ["level"] = 3, ["score"] = 1200 });

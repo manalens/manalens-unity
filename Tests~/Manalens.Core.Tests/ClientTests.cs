@@ -202,7 +202,7 @@ namespace Manalens.Tests
             var open = device.Transport.AllEvents.First(e => e.Name() == "game_open").Props();
             Assert.Equal(JsonValueKind.False, open.GetProperty("is_first_open").ValueKind);
             Assert.Equal("2027-01-15T08:00:00.000Z", open.Str("first_open_at"));
-            Assert.DoesNotContain("app_unclean_exit", device.Transport.Names);
+            Assert.DoesNotContain("app_crash", device.Transport.Names);
         }
 
         [Fact]
@@ -689,14 +689,14 @@ namespace Manalens.Tests
         }
 
         [Fact]
-        public void TheUncleanExitIsSavedBeforeAnySend()
+        public void TheCrashEventIsSavedBeforeAnySend()
         {
             var device = new Device();
             var client = device.Launch();
             client.Update();
             device.Clock.Advance(60);
             device.Launch(); // The first process was killed; this one is killed too before any save.
-            Assert.Contains("app_unclean_exit", device.Storage.Blobs[AnalyticsClient.QueueName]);
+            Assert.Contains("app_crash", device.Storage.Blobs[AnalyticsClient.QueueName]);
         }
 
         [Fact]
@@ -852,7 +852,7 @@ namespace Manalens.Tests
         }
 
         [Fact]
-        public void ACrashSendsAppUncleanExitInTheCrashedSessionAtTheNextLaunch()
+        public void ACrashSendsAppCrashInTheCrashedSessionAtTheNextLaunch()
         {
             var device = new Device();
             var crashed = device.Launch();
@@ -865,7 +865,7 @@ namespace Manalens.Tests
             var next = device.Launch(Device.Options(o => o.Build = "572"));
             next.Update();
             var events = device.Transport.AllEvents;
-            var crash = events.Single(e => e.Name() == "app_unclean_exit");
+            var crash = events.Single(e => e.Name() == "app_crash");
             var end = events.Single(e => e.Name() == "session_end");
             Assert.Equal(crashedSession, crash.Str("session_id"));
             Assert.Equal(crashedSession, crash.Props().Str("previous_session_id"));
@@ -874,7 +874,7 @@ namespace Manalens.Tests
             Assert.Equal(crash.Str("original_timestamp"), end.Str("original_timestamp"));
             Assert.Equal("2027-01-15T08:00:25.000Z", end.Str("original_timestamp"));
             Assert.Equal(25, end.Props().GetProperty("duration_s").GetInt64());
-            Assert.Equal(new[] { "app_unclean_exit", "session_end", "session_start", "game_open" }, device.Transport.Names);
+            Assert.Equal(new[] { "app_crash", "session_end", "session_start", "game_open" }, device.Transport.Names);
             Assert.NotEqual(crashedSession, next.SessionId);
         }
 
@@ -891,7 +891,7 @@ namespace Manalens.Tests
             device.Clock.Advance(600);
             var reloaded = device.Launch(platform: "web");
             reloaded.Update();
-            Assert.DoesNotContain("app_unclean_exit", device.Transport.Names);
+            Assert.DoesNotContain("app_crash", device.Transport.Names);
             var end = device.Transport.AllEvents.Single(e => e.Name() == "session_end");
             Assert.Equal(session, end.Str("session_id"));
             Assert.Equal(25, end.Props().GetProperty("duration_s").GetInt64());
@@ -907,7 +907,7 @@ namespace Manalens.Tests
             device.Clock.Advance(3600);
             var next = device.Launch();
             next.Update();
-            Assert.DoesNotContain("app_unclean_exit", device.Transport.Names);
+            Assert.DoesNotContain("app_crash", device.Transport.Names);
             Assert.Contains("session_end", device.Transport.Names);
         }
 
@@ -921,7 +921,7 @@ namespace Manalens.Tests
             Assert.Equal(1, client.QueueSize); // session_end waits on disk for the next launch.
             var next = device.Launch();
             next.Update();
-            Assert.DoesNotContain("app_unclean_exit", device.Transport.Names);
+            Assert.DoesNotContain("app_crash", device.Transport.Names);
             Assert.Equal(new[] { "session_end", "session_start", "game_open" }, device.Transport.Names);
         }
     }
@@ -929,7 +929,7 @@ namespace Manalens.Tests
     /// <summary>A dedicated server build is not a player (G-2533).</summary>
     public class ServerBuildTests
     {
-        static readonly string[] Automatic = { "game_open", "session_start", "session_end", "app_unclean_exit" };
+        static readonly string[] Automatic = { "game_open", "session_start", "session_end", "app_crash" };
 
         /// <summary>Two launches of a server: the first ends without a quit (a crash), the second quits.</summary>
         static List<string> RunServer(Device device, bool trackServerBuilds)
@@ -1103,12 +1103,13 @@ namespace Manalens.Tests
             client.CaptureLog("NullReferenceException: Object reference not set to an instance of an object",
                 "Game.Player.Jump () (at Assets/Scripts/Player.cs:42)\nGame.Player.Update () (at Assets/Scripts/Player.cs:12)\n", LogKind.Exception);
             client.Update();
-            var props = Single(device, "unity_log").Props();
+            var props = Single(device, "auto").Props();
             Assert.Equal("NullReferenceException", props.Str("error_type"));
             Assert.Equal("Assets/Scripts/Player.cs", props.Str("file"));
             Assert.Equal(42, props.GetProperty("line").GetInt32());
             Assert.Equal("Game.Player.Jump", props.Str("function"));
             Assert.Equal("exception", props.Str("log_type"));
+            Assert.Equal("auto", props.Str("source"));
             Assert.Equal("error", props.Str("severity"));
             Assert.Equal(JsonValueKind.False, props.GetProperty("handled").ValueKind);
             Assert.StartsWith("Game.Player.Jump () (at", props.Str("stack"));
@@ -1126,7 +1127,7 @@ namespace Manalens.Tests
             client.CaptureLog("Inspector failed", "UnityEngine.Debug:LogError (object)\nUnityEditor.InspectorWindow:OnGUI () (at /Users/bokken/InspectorWindow.cs:10)\n", LogKind.Error);
             client.CaptureLog("Boss failed", "UnityEngine.Debug:LogError (object)\nBoss:Update () (at Assets/Boss.cs:5)\n", LogKind.Error);
             client.Update();
-            var props = Single(device, "unity_log").Props();
+            var props = Single(device, "auto").Props();
             Assert.Equal("Boss failed", props.Str("message"));
         }
 
