@@ -166,7 +166,7 @@ namespace Manalens.Tests
             {
                 Assert.Equal("track", e.Str("type"));
                 Assert.Equal("app", e.Str("channel"));
-                Assert.Equal("0.5.0", e.Str("version"));
+                Assert.Equal("0.5.1", e.Str("version"));
                 Assert.Matches("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", e.Str("message_id"));
                 Assert.Equal(client.AnonymousId, e.Str("anonymous_id"));
                 Assert.Equal(client.SessionId, e.Str("session_id"));

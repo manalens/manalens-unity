@@ -35,7 +35,8 @@ namespace ManalensSdk
     public static class CrashStacks
     {
         public const int TailBytes = 262144;
-        public const int MaxStack = 4096;
+        /// <summary>The collector refuses a whole event with a property string over 1024 characters.</summary>
+        public const int MaxStack = 1024;
         public const int MaxMessage = 1024;
         const int FingerprintFrames = 5;
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 (2026-11-27)
+
+- Fix: a crash stack longer than 1024 characters made the collector refuse the whole `app_crash` (`INVALID_EVENT`), so the crash was lost. The stack now keeps the top frames, at most 1024 characters, the collector limit for a property value. Found in a production test of the Godot SDK, which had the same limit.
+
 ## 0.5.0 (2026-11-27)
 
 - Crash stacks (P-2831): in Windows, macOS, and Linux players, `app_crash` now says where the game crashed. At the next launch, the SDK reads the crash data that Unity wrote for the crashed run (Windows: the newest crash folder's `error.log`; all desktop players: `Player-prev.log`) and adds `stack`, `error_type`, `message`, `fingerprint`, `crash_source`, and `symbolicated`. Mono players give the managed C# frames first. No crash handler; at most 256 KB read; `crash.dmp` is never sent; each file once; nothing before consent. New option `CaptureCrashStacks` (default `true`) and `AppEnvironment.CrashFiles` for a custom engine layer.

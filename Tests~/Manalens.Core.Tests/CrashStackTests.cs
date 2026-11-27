@@ -80,6 +80,8 @@ Stack Trace of Thread 4322:
             Assert.Equal("Got a segv while executing native code", data["message"]);
             Assert.Equal("unity_player_log", data["crash_source"]);
             Assert.Equal(true, data["symbolicated"]);
+            // The collector refuses a whole event with a string over 1024 characters.
+            Assert.All(data.Values, value => Assert.True(!(value is string text) || text.Length <= 1024));
             var frames = ((string)data["stack"]).Split('\n');
             Assert.Equal(new[] { "UnityEngine.Diagnostics.Utils:ForceCrash", "CrashProbe:Crash", "CrashProbe:Run" }, frames.Take(3));
             Assert.Contains("CrashProbe:Crash ()", frames);
@@ -128,7 +130,7 @@ Stack Trace of Thread 4322:
         }
 
         [Fact]
-        public void HomeFoldersAreRemovedAndTheStackIsAtMost4096Characters()
+        public void HomeFoldersAreRemovedAndTheStackIsAtMost1024Characters()
         {
             var many = string.Join("\n", Enumerable.Range(0, 400).Select(i => $"#{i}  0x00000120394488 in  /Users/alex/Games/Frame{i}:Method ()"));
             var data = CrashStacks.Parse("Caught fatal signal - signo:11\nObtained 400 stack frames.\n" + many + "\n", "unity_player_log", "linux", Homes);
