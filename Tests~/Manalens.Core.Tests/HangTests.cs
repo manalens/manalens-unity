@@ -50,9 +50,9 @@ namespace Manalens.Tests
             var props = hang.Props();
             Assert.Equal("error", props.Str("severity"));
             Assert.Equal("auto", props.Str("source"));
-            Assert.True(props.GetProperty("handled").GetBoolean());
+            Assert.False(props.GetProperty("handled").GetBoolean());
             Assert.Equal(6000, props.GetProperty("hang_duration_ms").GetInt64());
-            Assert.Equal("The main thread was stuck for more than 5.0 s", props.Str("message"));
+            Assert.Equal("The main thread was blocked for 6.0 s", props.Str("message"));
             Assert.False(props.TryGetProperty("stack", out _)); // Unity cannot read the main thread stack from another thread.
             Assert.Contains("before_hang", props.Str("breadcrumbs"));
             Assert.Equal(Ids.Iso(stuckAt), hang.Str("original_timestamp"));
@@ -86,6 +86,7 @@ namespace Manalens.Tests
             Assert.False(hang.Props().GetProperty("handled").GetBoolean());
             Assert.Equal("error", hang.Props().Str("severity"));
             Assert.False(hang.Props().TryGetProperty("hang_duration_ms", out _));
+            Assert.Equal("The main thread was blocked for 5.0 s", hang.Props().Str("message")); // The threshold: the hang never ended.
             Assert.Contains("before_hang", hang.Props().Str("breadcrumbs"));
             Assert.Equal("571", hang.GetProperty("context").GetProperty("app").Str("build")); // The build of the run that hung.
             Assert.Equal(new[] { "error", "app_crash", "session_end", "session_start", "game_open" }, device.Transport.Names);
@@ -188,7 +189,45 @@ namespace Manalens.Tests
             Assert.True(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
             client.Update();
             client.SendNow();
-            Assert.Equal("The main thread was stuck for more than 2.0 s", Assert.Single(Hangs(device)).Props().Str("message"));
+            Assert.Equal("The main thread was blocked for 2.5 s", Assert.Single(Hangs(device)).Props().Str("message"));
+        }
+
+        [Fact]
+        public void TheThresholdIsClampedToOneToSixtySeconds()
+        {
+            Assert.Equal(1, new HangWatchdog(0.2, new FakeClock(), null).ThresholdSeconds);
+            Assert.Equal(60, new HangWatchdog(600, new FakeClock(), null).ThresholdSeconds);
+            Assert.Equal(2.5, new HangWatchdog(2.5, new FakeClock(), null).ThresholdSeconds);
+
+            var device = new Device();
+            var client = Warm(device, Device.Options(o => { o.FlushAt = 50; o.HangThresholdSeconds = 0.3; }));
+            Stall(device, client, 0.75);
+            Assert.False(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
+            Stall(device, client, 0.5);
+            Assert.True(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
+        }
+
+        [Fact]
+        public void FocusLossAndTheEditorPauseHaveSeparateFlags()
+        {
+            var device = new Device();
+            var client = Warm(device);
+            client.SetHangPaused(true);
+            client.OnFocusChanged(false);
+            client.OnFocusChanged(true); // Focus is back, the editor is still paused.
+            client.Update();
+            Stall(device, client, 8);
+            Assert.False(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
+
+            client.OnFocusChanged(false);
+            client.SetHangPaused(false); // The editor runs again, the game is still unfocused.
+            Stall(device, client, 8);
+            Assert.False(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
+
+            client.OnFocusChanged(true);
+            client.Update();
+            Stall(device, client, 6);
+            Assert.True(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
         }
 
         [Fact]
@@ -234,6 +273,39 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void ConsentWithdrawalStopsTheCountAndForgetsTheSessionAndBreadcrumbs()
+        {
+            var device = new Device();
+            var client = Warm(device);
+            client.Track("before_withdrawal");
+            client.Update();
+            client.SetConsent(false);
+            // The main thread gets stuck right after the withdrawal, before any Update().
+            Stall(device, client, 8);
+            Assert.False(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
+        }
+
+        [Fact]
+        public void ResetForgetsTheOldSessionAndBreadcrumbsInTheWatchdog()
+        {
+            var device = new Device();
+            var client = Warm(device);
+            var old = client.SessionId;
+            client.Track("before_reset");
+            client.Update();
+            client.Reset();
+            // Stuck right after Reset(), before any Update(): no hang with the old player's data.
+            Stall(device, client, 8);
+            Assert.False(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
+            client.Update();
+            Stall(device, client, 6);
+            Assert.True(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
+            var saved = device.Storage.Blobs[AnalyticsClient.HangName];
+            Assert.DoesNotContain(old, saved);
+            Assert.DoesNotContain("before_reset", saved);
+        }
+
+        [Fact]
         public void TheWatchdogDoesNotCountADebuggerPause()
         {
             var clock = new FakeClock();
@@ -259,7 +331,8 @@ namespace Manalens.Tests
         public void TheWatchdogThreadSeesARealStall()
         {
             var stuck = new System.Threading.ManualResetEventSlim();
-            var watchdog = new HangWatchdog(0.2, new SystemClock(), _ => stuck.Set()) { DebuggerAttached = () => false };
+            var watchdog = HangWatchdog.ForTests(0.2, new SystemClock(), _ => stuck.Set());
+            watchdog.DebuggerAttached = () => false;
             for (var i = 0; i <= HangWatchdog.WarmupFrames; i++) watchdog.Beat(true, "s");
             watchdog.Start();
             try

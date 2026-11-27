@@ -492,6 +492,8 @@ namespace ManalensSdk
                 }
                 EndSession(Now()); // Sends errors_dropped of the old session.
                 ClearErrorHistory();
+                // No hang of the new player with the old session or breadcrumbs.
+                _hang?.ClearSaved(() => _storage.Delete(HangName), true);
                 _userId = "";
                 _anonymousId = NewId();
                 _state.Set("identity.user_id", "");
@@ -570,7 +572,7 @@ namespace ManalensSdk
             lock (_gate)
             {
                 // No hang while the game is in the background: the OS may stop its frames.
-                _hang?.SetPaused(!focused);
+                _hang?.SetPaused(HangWatchdog.PauseCause.Focus, !focused);
                 if (!_initialized || _disabled || !_identityActive) return;
                 if (focused == _focused && !focused) return; // Pause and focus loss arrive together on mobile.
                 if (focused)
@@ -1606,17 +1608,21 @@ namespace ManalensSdk
             _storage.Write(HangName, file.Serialize());
         }
 
-        static string HangMessage(double thresholdSeconds) =>
-            "The main thread was stuck for more than " + thresholdSeconds.ToString("0.0", CultureInfo.InvariantCulture) + " s";
+        /// <summary>
+        /// The text of every app_hang (the same as the web SDK): the real
+        /// duration of a hang that ended, the threshold of a hang that never ended.
+        /// </summary>
+        static string HangMessage(double seconds) =>
+            "The main thread was blocked for " + seconds.ToString("0.0", CultureInfo.InvariantCulture) + " s";
 
         /// <summary>The main thread is back after a hang: send it once, with its duration.</summary>
         void RecordRecoveredHang(HangWatchdog.Hang hang)
         {
-            var id = RecordError(HangMessage(hang.ThresholdSeconds), new TrackErrorOptions
+            var id = RecordError(HangMessage(hang.DurationMs / 1000.0), new TrackErrorOptions
             {
                 Severity = "error",
                 ErrorType = HangErrorType,
-                Handled = true,
+                Handled = false,
                 Properties = new Dictionary<string, object> { ["hang_duration_ms"] = hang.DurationMs },
             }, SourceAuto, hang.StartedAt, hang.MessageId);
             if (id != null && _sessionId != "")
@@ -1676,9 +1682,9 @@ namespace ManalensSdk
         /// <summary>
         /// Any thread: no hang while paused is true (the Unity editor's pause
         /// button). Focus loss and a mobile pause need no call: OnFocusChanged
-        /// covers them.
+        /// covers them with their own flag, so one does not clear the other.
         /// </summary>
-        public void SetHangPaused(bool paused) => _hang?.SetPaused(paused);
+        public void SetHangPaused(bool paused) => _hang?.SetPaused(HangWatchdog.PauseCause.Editor, paused);
 
         /// <summary>Stops the watchdog thread (the process is quitting, or the SDK is shut down).</summary>
         public void StopHangWatchdog() => _hang?.Stop();

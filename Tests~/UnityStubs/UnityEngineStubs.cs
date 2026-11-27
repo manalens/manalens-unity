@@ -131,6 +131,12 @@ namespace UnityEngine
     {
         public TooltipAttribute(string tooltip) { }
     }
+
+    [AttributeUsage(AttributeTargets.Field)]
+    public sealed class MinAttribute : Attribute
+    {
+        public MinAttribute(float min) { }
+    }
 }
 
 namespace UnityEngine.Scripting

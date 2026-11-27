@@ -70,7 +70,8 @@ namespace ManalensSdk
         /// <summary>
         /// Hang detection (P-2833): a watchdog thread sends an error with
         /// error_type app_hang when one frame takes longer than this many
-        /// seconds (the main thread is stuck). 0 turns it off. Not counted while
+        /// seconds (the main thread is stuck). 0 turns it off; other values are
+        /// clamped to 1 to 60 s. Not counted while
         /// the game is unfocused or paused, while the editor is paused, while a
         /// debugger is attached, in the first frames after Init(), on WebGL, and
         /// on a quiet server build.

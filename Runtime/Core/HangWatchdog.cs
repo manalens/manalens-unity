@@ -1,5 +1,9 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
+
+// Tests only: HangWatchdog.ForTests (a threshold under the 1 s minimum).
+[assembly: InternalsVisibleTo("Manalens.Core.Tests")]
 
 namespace ManalensSdk
 {
@@ -22,6 +26,19 @@ namespace ManalensSdk
         public const int WarmupFrames = 10;
         /// <summary>The watchdog checks the heartbeat this often (at most).</summary>
         public const int PollMs = 250;
+        /// <summary>The smallest and the largest threshold (0 turns detection off before a watchdog is made).</summary>
+        public const double MinThresholdSeconds = 1;
+        public const double MaxThresholdSeconds = 60;
+
+        /// <summary>Why the watchdog does not count: each cause has its own flag, and any set flag pauses it.</summary>
+        [Flags]
+        public enum PauseCause
+        {
+            /// <summary>The app lost focus or is in the background.</summary>
+            Focus = 1,
+            /// <summary>The Unity editor's pause button.</summary>
+            Editor = 2,
+        }
 
         /// <summary>One stuck period of the main thread.</summary>
         public sealed class Hang
@@ -47,7 +64,8 @@ namespace ManalensSdk
         long _beat;
         long _lastCheck = -1;
         int _frames;
-        bool _counting, _paused, _stop;
+        bool _counting, _stop;
+        PauseCause _paused;
         Hang _current;
         string _session = "", _crumbs = "";
         Thread _thread;
@@ -58,9 +76,19 @@ namespace ManalensSdk
         /// </summary>
         public Func<bool> DebuggerAttached = () => System.Diagnostics.Debugger.IsAttached;
 
+        /// <summary>The threshold is clamped to MinThresholdSeconds to MaxThresholdSeconds.</summary>
         public HangWatchdog(double thresholdSeconds, IClock clock, Action<Hang> onStuck)
+            : this((long)(Math.Max(MinThresholdSeconds, Math.Min(MaxThresholdSeconds, thresholdSeconds)) * 1000), clock, onStuck)
         {
-            _thresholdMs = Math.Max(1, (long)(thresholdSeconds * 1000));
+        }
+
+        /// <summary>Tests only: a watchdog with a threshold under the minimum.</summary>
+        internal static HangWatchdog ForTests(double thresholdSeconds, IClock clock, Action<Hang> onStuck) =>
+            new HangWatchdog(Math.Max(1, (long)(thresholdSeconds * 1000)), clock, onStuck);
+
+        HangWatchdog(long thresholdMs, IClock clock, Action<Hang> onStuck)
+        {
+            _thresholdMs = thresholdMs;
             _pollMs = (int)Math.Max(10, Math.Min(PollMs, _thresholdMs / 4));
             _clock = clock;
             _onStuck = onStuck;
@@ -91,17 +119,23 @@ namespace ManalensSdk
         }
 
         /// <summary>
-        /// Any thread: no hang until <c>paused</c> is false again (the app
-        /// is in the background, or the editor is paused). The time paused does
+        /// Any thread: sets or clears one pause cause (focus loss, the editor's
+        /// pause button). No hang while any cause is set. The time paused does
         /// not count.
         /// </summary>
-        public void SetPaused(bool paused)
+        public void SetPaused(PauseCause cause, bool paused)
         {
             lock (_gate)
             {
-                _paused = paused;
+                _paused = paused ? _paused | cause : _paused & ~cause;
                 _beat = _clock.Milliseconds;
             }
+        }
+
+        /// <summary>true while any pause cause is set.</summary>
+        public bool Paused
+        {
+            get { lock (_gate) return _paused != 0; }
         }
 
         /// <summary>The breadcrumbs that a hang carries (main thread, when they change).</summary>
@@ -114,14 +148,22 @@ namespace ManalensSdk
         /// Runs <c>delete</c> (the saved hang) unless a new hang started since
         /// the last Beat(): its file must stay. Under the lock, so the watchdog
         /// cannot write a new hang between the check and the delete.
-        /// <c>forget</c> (consent withdrawn): delete it in any case, and forget
-        /// the hang of the stuck period that runs now.
+        /// <c>forget</c> (consent withdrawn, reset): delete it in any case,
+        /// forget the hang of the stuck period that runs now, stop counting
+        /// until the next Beat(), and clear the session and the breadcrumbs, so
+        /// no hang is written with the old player's data.
         /// </summary>
         public void ClearSaved(Action delete, bool forget = false)
         {
             lock (_gate)
             {
-                if (forget) _current = null;
+                if (forget)
+                {
+                    _current = null;
+                    _counting = false;
+                    _session = "";
+                    _crumbs = "";
+                }
                 if (_current == null) delete();
             }
         }
@@ -147,7 +189,7 @@ namespace ManalensSdk
                 // background). Not a hang.
                 if (_lastCheck >= 0 && now - _lastCheck > _pollMs * 4 + 1000) _beat = now;
                 _lastCheck = now;
-                if (!_counting || _paused || _current != null || now - _beat < _thresholdMs) return;
+                if (!_counting || _paused != 0 || _current != null || now - _beat < _thresholdMs) return;
                 if (DebuggerAttached != null && DebuggerAttached())
                 {
                     _beat = now;
