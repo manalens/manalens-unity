@@ -26,6 +26,13 @@ namespace ManalensSdk
         public const string StateName = "manalens_state";
         public const string QueueName = "manalens_queue";
         /// <summary>
+        /// The hang that the watchdog thread saw while the main thread was
+        /// stuck (P-2833). The main thread sends it when it recovers; when the
+        /// game was killed during the hang, the next launch sends it.
+        /// </summary>
+        public const string HangName = "manalens_hang";
+        public const string HangErrorType = "app_hang";
+        /// <summary>
         /// Exists while the player has withdrawn consent. Checked apart from the
         /// state, so a lost or broken state file cannot undo an opt-out.
         /// </summary>
@@ -169,6 +176,8 @@ namespace ManalensSdk
         List<PendingLog> _pendingLogs = new List<PendingLog>();
         readonly List<string> _homeDirs = ErrorTools.HomeDirs();
         int _logOverflow;
+        /// <summary>Hang detection (P-2833); null when off.</summary>
+        HangWatchdog _hang;
 
         sealed class QueueEntry
         {
@@ -295,6 +304,7 @@ namespace ManalensSdk
                     ApplyConsent(granted);
                 }
                 if (IdentityAllowed() && !_identityActive) StartIdentity();
+                StartHangWatchdog();
                 return true;
             }
         }
@@ -536,6 +546,8 @@ namespace ManalensSdk
             lock (_gate)
             {
                 if (!_initialized || _disabled) return;
+                var hang = _hang?.Beat(_identityActive && _focused, _sessionId);
+                if (hang != null) RecordRecoveredHang(hang);
                 DrainLogs();
                 var now = Now();
                 if (now >= _nextTickAt)
@@ -557,6 +569,8 @@ namespace ManalensSdk
         {
             lock (_gate)
             {
+                // No hang while the game is in the background: the OS may stop its frames.
+                _hang?.SetPaused(!focused);
                 if (!_initialized || _disabled || !_identityActive) return;
                 if (focused == _focused && !focused) return; // Pause and focus loss arrive together on mobile.
                 if (focused)
@@ -600,6 +614,7 @@ namespace ManalensSdk
         {
             lock (_gate)
             {
+                _hang?.Stop(); // The process is quitting: a slow quit is not a hang.
                 if (!_initialized || _disabled || !_identityActive) return;
                 if (_sessionId != "") EndSession(Now());
                 SaveQueue();
@@ -726,9 +741,13 @@ namespace ManalensSdk
                 // Sentry "abnormal" session). A game the OS closed in the background
                 // is not a crash. On web a closed or reloaded tab has no quit event,
                 // so every relaunch would look like a crash: no crash detection there.
+                // A hang that the game never recovered from (it was killed while
+                // stuck), else the last hang of the session that ended: app_crash links to it.
+                var hangId = SendSavedHang() ?? _state.Get("session.hang_message_id");
                 if (!_serverQuiet && !_state.GetBool("session.exited", false) && _state.GetBool("session.focused", true) && _platform != "web")
                 {
                     var crash = new Dictionary<string, object> { ["previous_session_id"] = previous };
+                    if (hangId != "") crash["hang_message_id"] = hangId;
                     var build = _state.Get("session.build");
                     var version = _state.Get("session.app_version");
                     if (build != "") crash["previous_build"] = build;
@@ -738,6 +757,7 @@ namespace ManalensSdk
                 }
                 EndSession(_lastActivityAt);
             }
+            else _storage.Delete(HangName); // The hang of a session that is gone.
             StartSession(now);
             if (!_serverQuiet)
             {
@@ -950,6 +970,7 @@ namespace ManalensSdk
                 ok &= SaveState();
             }
             ok &= _storage.Delete(QueueName);
+            _hang?.ClearSaved(() => _storage.Delete(HangName), true);
             _optOutWritePending = !ok;
             if (!ok) _log.Warning("could not save the opt-out; the SDK stays off and tries again");
         }
@@ -957,12 +978,12 @@ namespace ManalensSdk
         // Events and queue ---------------------------------------------------
 
         /// <summary>Builds the envelope and runs BeforeSend on it. Null: BeforeSend dropped the event.</summary>
-        QueueEntry Build(string type, string eventName, Dictionary<string, object> properties, double at, Dictionary<string, object> traits = null)
+        QueueEntry Build(string type, string eventName, Dictionary<string, object> properties, double at, Dictionary<string, object> traits = null, string messageId = null)
         {
             properties = Fit(properties, "properties");
             if (traits != null) traits = Fit(traits, "traits");
             var when = at < 0 ? Now() : at;
-            var messageId = NewId();
+            messageId = messageId ?? NewId();
             var userId = _userId;
             if (_beforeSend != null && !ApplyBeforeSend(type, ref eventName, ref properties, ref traits, ref userId, messageId, when))
             {
@@ -1009,6 +1030,7 @@ namespace ManalensSdk
             {
                 _breadcrumbs.Add(eventName);
                 if (_breadcrumbs.Count > BreadcrumbCount) _breadcrumbs.RemoveAt(0);
+                _hang?.SetBreadcrumbs(Breadcrumbs());
             }
             return new QueueEntry { At = when, MessageId = messageId, Json = sb.ToString() };
         }
@@ -1493,13 +1515,18 @@ namespace ManalensSdk
             }
         }
 
-        void RecordError(string message, TrackErrorOptions options, string source)
+        /// <summary>
+        /// Returns the message_id of the queued error, or null when it was
+        /// dropped. at, messageId and touch are for hangs (P-2833): the time and
+        /// the ID that the watchdog saved, and no session activity at the next launch.
+        /// </summary>
+        string RecordError(string message, TrackErrorOptions options, string source, double at = -1, string messageId = null, bool touch = true)
         {
-            if (_disabled) return;
+            if (_disabled) return null;
             if (!_initialized || !_identityActive)
             {
                 if (source == SourceManual) ReadyToRecord(); // Warns before Init().
-                return;
+                return null;
             }
             var severity = Array.IndexOf(Severities, options.Severity) >= 0 ? options.Severity : "error";
             var errorType = Left(options.ErrorType ?? "", 128);
@@ -1523,25 +1550,138 @@ namespace ManalensSdk
             if (function != "") props["function"] = function;
             var stack = (options.Stack ?? "").Trim();
             if (stack != "") props["stack"] = Left(stack, MaxString);
-            if (_breadcrumbs.Count > 0)
-            {
-                var crumbs = string.Join(",", _breadcrumbs);
-                props["breadcrumbs"] = crumbs.Length > MaxString ? crumbs.Substring(crumbs.Length - MaxString) : crumbs;
-            }
+            if (_breadcrumbs.Count > 0) props["breadcrumbs"] = Breadcrumbs();
             foreach (var pair in Scalars(options.Properties))
                 if (!props.ContainsKey(pair.Key)) props[pair.Key] = pair.Value;
             if (!ErrorAllowed(fingerprint, source))
             {
                 _errorsDropped++;
-                return;
+                return null;
             }
-            Touch();
+            if (touch) Touch();
             // BeforeSend runs in Build, after the fingerprint and the limits.
-            if (!Enqueue(Build("track", "error", props, -1))) return;
+            var entry = Build("track", "error", props, at, null, messageId);
+            if (!Enqueue(entry)) return null;
             if (source == SourceAuto) _autoErrors++;
             // Keep the error on disk now: a crash can follow it.
             SaveQueue();
+            return entry.MessageId;
         }
+
+        /// <summary>The breadcrumbs as one property value: the newest, at most 1024 characters.</summary>
+        string Breadcrumbs()
+        {
+            var crumbs = string.Join(",", _breadcrumbs);
+            return crumbs.Length > MaxString ? crumbs.Substring(crumbs.Length - MaxString) : crumbs;
+        }
+
+        // Hangs (P-2833) -----------------------------------------------------
+
+        /// <summary>
+        /// Starts hang detection: on when HangThresholdSeconds is over 0, not
+        /// on web (no threads, no app_crash) and not on a quiet server build
+        /// (no app_crash). The thread runs only when the engine layer asks for
+        /// it (AppEnvironment.HangWatchdogThread); tests call CheckHang().
+        /// </summary>
+        void StartHangWatchdog()
+        {
+            if (_options.HangThresholdSeconds <= 0 || _platform == "web" || _serverQuiet || _hang != null) return;
+            _hang = new HangWatchdog(_options.HangThresholdSeconds, _clock, SaveHang);
+            if (_env.HangWatchdogThread) _hang.Start();
+        }
+
+        /// <summary>
+        /// The watchdog thread, while the main thread is stuck: write the hang
+        /// at once, because the player may kill the game before it recovers.
+        /// Uses only the storage (its own blob), never the client lock.
+        /// </summary>
+        void SaveHang(HangWatchdog.Hang hang)
+        {
+            var file = new StateFile();
+            file.Set("message_id", hang.MessageId);
+            file.Set("session_id", hang.SessionId);
+            file.SetDouble("started_at", hang.StartedAt);
+            file.SetDouble("threshold_s", hang.ThresholdSeconds);
+            file.Set("breadcrumbs", hang.Breadcrumbs);
+            _storage.Write(HangName, file.Serialize());
+        }
+
+        static string HangMessage(double thresholdSeconds) =>
+            "The main thread was stuck for more than " + thresholdSeconds.ToString("0.0", CultureInfo.InvariantCulture) + " s";
+
+        /// <summary>The main thread is back after a hang: send it once, with its duration.</summary>
+        void RecordRecoveredHang(HangWatchdog.Hang hang)
+        {
+            var id = RecordError(HangMessage(hang.ThresholdSeconds), new TrackErrorOptions
+            {
+                Severity = "error",
+                ErrorType = HangErrorType,
+                Handled = true,
+                Properties = new Dictionary<string, object> { ["hang_duration_ms"] = hang.DurationMs },
+            }, SourceAuto, hang.StartedAt, hang.MessageId);
+            if (id != null && _sessionId != "")
+            {
+                // A crash later in this session links to this hang.
+                _state.Set("session.hang_message_id", id);
+                SaveState();
+            }
+            // Remove the saved hang only now: the error is in the queue file.
+            // Keep the file of a newer hang that started since.
+            _hang.ClearSaved(() => _storage.Delete(HangName));
+        }
+
+        /// <summary>
+        /// Next launch: the hang that the watchdog saved while the main thread
+        /// was stuck, and that it never recovered from. Sent in its session,
+        /// with the build of that run. Returns its message_id, or null.
+        /// </summary>
+        string SendSavedHang()
+        {
+            if (_storage.Read(HangName, out var text) != ReadStatus.Ok) return null;
+            _storage.Delete(HangName);
+            if (!StateFile.TryParse(text, out var saved) || saved.Get("message_id") == "") return null;
+            var id = saved.Get("message_id");
+            foreach (var entry in _queue)
+                if (entry.MessageId == id) return id; // Already queued: the game recovered, then was killed.
+            var session = _sessionId;
+            var build = _build;
+            var version = _appVersion;
+            if (saved.Get("session_id") != "") _sessionId = saved.Get("session_id");
+            if (_state.Has("session.build")) _build = _state.Get("session.build");
+            if (_state.Has("session.app_version")) _appVersion = _state.Get("session.app_version");
+            var props = new Dictionary<string, object>();
+            var crumbs = saved.Get("breadcrumbs");
+            if (crumbs != "") props["breadcrumbs"] = crumbs.Length > MaxString ? crumbs.Substring(crumbs.Length - MaxString) : crumbs;
+            try
+            {
+                return RecordError(HangMessage(saved.GetDouble("threshold_s", 0)), new TrackErrorOptions
+                {
+                    Severity = "error",
+                    ErrorType = HangErrorType,
+                    Handled = false,
+                    Properties = props,
+                }, SourceAuto, saved.GetDouble("started_at", _lastActivityAt), id, false);
+            }
+            finally
+            {
+                _sessionId = session;
+                _build = build;
+                _appVersion = version;
+            }
+        }
+
+        /// <summary>Runs one check of the hang watchdog now (tests; the Unity layer runs it on a thread).</summary>
+        public void CheckHang() => _hang?.Check();
+
+        /// <summary>
+        /// Any thread: no hang while paused is true (the Unity editor's pause
+        /// button). Focus loss and a mobile pause need no call: OnFocusChanged
+        /// covers them.
+        /// </summary>
+        public void SetHangPaused(bool paused) => _hang?.SetPaused(paused);
+
+        /// <summary>Stops the watchdog thread (the process is quitting, or the SDK is shut down).</summary>
+        public void StopHangWatchdog() => _hang?.Stop();
 
         /// <summary>The limits. Manual errors skip only the per-session cap.</summary>
         bool ErrorAllowed(string fingerprint, string source)

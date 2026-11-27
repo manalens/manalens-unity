@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Hang detection (P-2833): a watchdog thread sends an `error` with `error_type` `app_hang` (severity `error`, `source` `auto`) when the main thread is stuck for longer than `HangThresholdSeconds` (new option, default `5`; `0` turns it off). The watchdog writes the hang to disk while the game is stuck, so a game that the player kills keeps it: the next launch sends it in the old session (`handled` `false`), and `app_crash` gets the new property `hang_message_id`. A hang that ends is sent once, with `hang_duration_ms`. No stack: Unity cannot read the main thread stack from another thread. Not counted while the game is unfocused or paused, while the editor is paused, while a debugger is attached, in the first 10 frames after `Init()`, on WebGL, or on a quiet server build. The usual error limits and `BeforeSend` apply. New: `HangWatchdog`, `AppEnvironment.HangWatchdogThread`, `AnalyticsClient.CheckHang()`, `SetHangPaused()`, and `StopHangWatchdog()` for a custom engine layer.
+- Tests: `HangTests`.
+
 ## 0.6.0 (2026-11-27)
 
 - `SteamLink = true` now waits until the first event batch of the launch was accepted (a 2xx answer), plus 20 seconds, before it links the Steam account. Manalens merges the installs of one Steam account only when the install has its own events before a link. Before, on a first launch the link came before the first events were stored, so that install could not merge. A launch with no accepted batch (offline) makes no automatic link. `Manalens.LinkSteam()` from the game does not wait, as before; call it after your first events were sent if you link by hand. New: `AnalyticsClient.SteamLinkReady` and `SteamLinkDelaySeconds`.

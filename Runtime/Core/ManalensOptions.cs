@@ -68,6 +68,15 @@ namespace ManalensSdk
         /// </summary>
         public bool CaptureCrashStacks = true;
         /// <summary>
+        /// Hang detection (P-2833): a watchdog thread sends an error with
+        /// error_type app_hang when one frame takes longer than this many
+        /// seconds (the main thread is stuck). 0 turns it off. Not counted while
+        /// the game is unfocused or paused, while the editor is paused, while a
+        /// debugger is attached, in the first frames after Init(), on WebGL, and
+        /// on a quiet server build.
+        /// </summary>
+        public double HangThresholdSeconds = 5;
+        /// <summary>
         /// Gets a copy of each event before it is queued: track events (also
         /// error and the automatic events such as session_start), identify and traits.
         /// Keys: type, event, properties, traits, user_id, message_id,

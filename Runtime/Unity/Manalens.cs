@@ -110,6 +110,7 @@ namespace ManalensSdk
                 DefaultAppVersion = Application.version,
                 IsServerBuild = IsServerBuild(),
                 CrashFiles = UnityCrashFiles.ForThisPlayer(),
+                HangWatchdogThread = true,
             };
 #if UNITY_WEBGL && !UNITY_EDITOR
             IStorage storage = BrowserStorage.Create();

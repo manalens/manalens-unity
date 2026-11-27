@@ -107,6 +107,11 @@ namespace ManalensSdk
         public bool IsServerBuild;
         /// <summary>The files that can hold Unity's crash data of an earlier run. Null: none (editor, mobile, web, tests).</summary>
         public ICrashFiles CrashFiles;
+        /// <summary>
+        /// true: run the hang watchdog on its own thread (the Unity layer).
+        /// false (tests): call AnalyticsClient.CheckHang() to run one check.
+        /// </summary>
+        public bool HangWatchdogThread;
     }
 
     /// <summary>The kind of a captured engine log message.</summary>

@@ -20,6 +20,9 @@ namespace ManalensSdk
             Application.logMessageReceivedThreaded += OnLog;
             Application.wantsToQuit += OnWantsToQuit;
             Application.quitting += OnQuitting;
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.pauseStateChanged += OnEditorPause;
+#endif
         }
 
         void OnDisable()
@@ -27,7 +30,20 @@ namespace ManalensSdk
             Application.logMessageReceivedThreaded -= OnLog;
             Application.wantsToQuit -= OnWantsToQuit;
             Application.quitting -= OnQuitting;
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.pauseStateChanged -= OnEditorPause;
+#endif
+            // Leaving Play mode (or the driver is gone): stop the hang watchdog thread.
+            Client?.StopHangWatchdog();
         }
+
+#if UNITY_EDITOR
+        /// <summary>The editor's pause button stops the frames: not a hang.</summary>
+        void OnEditorPause(UnityEditor.PauseState state)
+        {
+            Client?.SetHangPaused(state == UnityEditor.PauseState.Paused);
+        }
+#endif
 
         void Update()
         {
