@@ -33,7 +33,8 @@ namespace ManalensSdk
 
         /// <summary>
         /// Events were dropped and will never be sent. status: the HTTP status when
-        /// the collector refused a batch (a 4xx other than 408 and 429), or 0 when
+        /// the collector refused a batch (a 4xx other than 408 and 429, or a 413 for a
+        /// single event; a 413 for more events splits the batch), or 0 when
         /// the SDK dropped events itself (over MaxQueue, or older than 7 days).
         /// </summary>
         public static event Action<int, int> SendFailed;

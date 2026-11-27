@@ -545,7 +545,6 @@ namespace Manalens.Tests
         [Theory]
         [InlineData(400)]
         [InlineData(401)]
-        [InlineData(413)]
         [InlineData(422)]
         public void DropsTheBatchOnOther4xxAndRaisesSendFailed(int status)
         {
@@ -558,6 +557,70 @@ namespace Manalens.Tests
             Assert.Equal(0, client.QueueSize);
             Assert.Equal((status, 2), failed.Single());
             Assert.True(device.Log.Has($"collector refused 2 events (HTTP {status})"));
+        }
+
+        [Fact]
+        public void A413SplitsTheBatchInHalfWithoutBackoffAndLosesNoEvent()
+        {
+            // P-2853: a 413 keeps the events and sends again at once with half the batch.
+            var device = new Device();
+            var client = device.Launch(Device.Options(o => o.FlushAt = 20));
+            var failed = new List<(int, int)>();
+            client.SendFailed += (s, n) => failed.Add((s, n));
+            device.Transport.Manual = true;
+            client.Update();
+            device.Transport.Requests[0].Complete(202);
+            for (var i = 0; i < 20; i++) client.Track("e" + i);
+            client.Update();
+            var first = device.Transport.Requests[1];
+            Assert.Equal(20, first.Events.Count);
+            first.Complete(413);
+            Assert.Equal(20, client.QueueSize);
+            Assert.True(device.Log.Has("413: batch of 20 events too large, sending 10"), string.Join("\n", device.Log.Lines));
+            // No backoff: the next Update() sends, with no wait.
+            client.Update();
+            var second = device.Transport.Requests[2];
+            Assert.Equal(10, second.Events.Count);
+            second.Complete(202);
+            client.Update();
+            var third = device.Transport.Requests[3];
+            Assert.Equal(10, third.Events.Count);
+            third.Complete(202);
+            Assert.Equal(0, client.QueueSize);
+            Assert.Empty(failed);
+            // Same events, same order, same message IDs.
+            Assert.Equal(
+                first.Events.Select(e => e.Str("message_id")),
+                second.Events.Concat(third.Events).Select(e => e.Str("message_id")));
+            // After a success the next batch uses the full size again.
+            for (var i = 0; i < 20; i++) client.Track("f" + i);
+            client.Update();
+            Assert.Equal(20, device.Transport.Requests[4].Events.Count);
+        }
+
+        [Fact]
+        public void A413ForOneEventDropsItAndRaisesSendFailed()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            var failed = new List<(int, int)>();
+            client.SendFailed += (s, n) => failed.Add((s, n));
+            device.Transport.Statuses.Enqueue(413); // 2 events: split to 1.
+            device.Transport.Statuses.Enqueue(413); // 1 event: dropped.
+            client.Update();
+            Assert.Equal(2, client.QueueSize);
+            Assert.Empty(failed);
+            client.Update();
+            Assert.Equal(1, client.QueueSize);
+            Assert.Equal((413, 1), failed.Single());
+            Assert.True(device.Log.Has("collector refused 1 events (HTTP 413)"));
+            Assert.Equal(device.Transport.Requests[0].Events[0].Str("message_id"), device.Transport.Requests[1].Events.Single().Str("message_id"));
+            // The other event is sent next, with no backoff.
+            client.Update();
+            Assert.Equal(3, device.Transport.Requests.Count);
+            Assert.Equal(device.Transport.Requests[0].Events[1].Str("message_id"), device.Transport.Requests[2].Events.Single().Str("message_id"));
+            Assert.Equal(0, client.QueueSize);
+            Assert.Single(failed);
         }
 
         [Fact]

@@ -79,7 +79,8 @@ namespace ManalensSdk
         public event Action<int, bool> Flushed;
         /// <summary>
         /// Events were dropped and will never be sent. status: the HTTP status
-        /// when the collector refused a batch (a 4xx other than 408 and 429), or
+        /// when the collector refused a batch (a 4xx other than 408 and 429, or a
+        /// 413 for a single event; a 413 for more events splits the batch), or
         /// 0 when the SDK dropped events itself (over MaxQueue, or older than 7 days).
         /// </summary>
         public event Action<int, int> SendFailed;
@@ -116,6 +117,9 @@ namespace ManalensSdk
         string _anonymousId = "", _userId = "", _sessionId = "";
         double _sessionStartedAt, _lastActivityAt, _nextTickAt, _backoffUntil;
         int _flushAt = 20, _maxQueue = 1000, _failures;
+        // The batch limit after a 413 (the batch was too large): half the last batch.
+        // Back to no limit after any 2xx.
+        int _batchLimit = int.MaxValue;
         string _appVersion = "", _build = "", _storefront = "", _platform = "other", _url = "";
         readonly List<QueueEntry> _queue = new List<QueueEntry>();
         bool _queueDirty, _sending, _flushRequested;
@@ -1143,7 +1147,7 @@ namespace ManalensSdk
                 _flushRequested = false;
                 return;
             }
-            var count = Math.Min(_flushAt, _queue.Count);
+            var count = Math.Min(Math.Min(_flushAt, _batchLimit), _queue.Count);
             var ids = new HashSet<string>();
             var body = new StringBuilder("{\"events\":[");
             for (var i = 0; i < count; i++)
@@ -1250,10 +1254,21 @@ namespace ManalensSdk
         {
             var count = ids.Count;
             var ok = status >= 200 && status < 300;
-            // A 4xx other than 408 and 429 will fail again: drop the batch (as the
-            // Godot and web SDKs do). Network errors and 5xx stay and back off.
-            var rejected = status >= 400 && status < 500 && status != 408 && status != 429;
-            if (ok || rejected)
+            // 413 with more than 1 event: the batch is too large. Keep the events
+            // and send again at once with half the batch. It is not a failure: no
+            // backoff, and the failure counter does not change.
+            var split = status == 413 && count > 1;
+            // A 4xx other than 408, 413 (more than 1 event) and 429 will fail again:
+            // drop the batch (as the Godot and web SDKs do). A 413 with 1 event is
+            // dropped too. Network errors and 5xx stay and back off.
+            var rejected = status >= 400 && status < 500 && status != 408 && status != 429 && !split;
+            if (ok) _batchLimit = int.MaxValue;
+            if (split)
+            {
+                _batchLimit = Math.Max(1, count / 2);
+                _log.Warning("413: batch of " + count + " events too large, sending " + _batchLimit);
+            }
+            else if (ok || rejected)
             {
                 _queue.RemoveAll(entry => ids.Contains(entry.MessageId));
                 _queueDirty = true;
@@ -1294,10 +1309,11 @@ namespace ManalensSdk
             var why = RefusalReason(response);
             _lastSendResult = status <= 0 ? "network error: kept in the queue, sent again later"
                 : ok ? "HTTP " + status + ": " + count + " events stored" + (ids.Count > count ? ", " + (ids.Count - count) + " refused" + (why == "" ? "" : " (" + why + ")") : "")
+                : split ? "HTTP 413: batch of " + count + " events too large, sent again in batches of " + _batchLimit
                 : "HTTP " + status + (why == "" ? "" : " " + why) + (rejected ? ": " + count + " events dropped" : ": kept in the queue, sent again later");
             SaveQueue();
             RaiseFlushed(ok ? count : 0, ok);
-            if ((ok || rejected) && _queue.Count > 0) _flushRequested = true;
+            if ((ok || rejected || split) && _queue.Count > 0) _flushRequested = true;
         }
 
         void LoadQueue()
