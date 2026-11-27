@@ -21,7 +21,7 @@ namespace ManalensSdk
     public sealed class AnalyticsClient
     {
         public const string LibraryName = "Manalens Unity SDK";
-        public const string LibraryVersion = "0.4.0";
+        public const string LibraryVersion = "0.5.0";
         public const string Engine = "unity";
         public const string StateName = "manalens_state";
         public const string QueueName = "manalens_queue";
@@ -185,6 +185,37 @@ namespace ManalensSdk
             _clock = clock ?? new SystemClock();
             _log = log ?? new NullLog();
             _beforeSend = options.BeforeSend;
+        }
+
+        /// <summary>
+        /// The crash data of the session that crashed (sdks/SPEC.md "Crash
+        /// stacks"): the first crash file written at or after the session start
+        /// and not read before. Empty when there is none, off the desktop, or
+        /// with CaptureCrashStacks off. Runs only after consent (StartIdentity).
+        /// </summary>
+        Dictionary<string, object> CrashData(double startedAt)
+        {
+            var empty = new Dictionary<string, object>();
+            if (!_options.CaptureCrashStacks || _env.CrashFiles == null || !CrashStacks.Supported(_platform)) return empty;
+            try
+            {
+                foreach (var file in _env.CrashFiles.Candidates())
+                {
+                    // File times can have whole seconds.
+                    if (file == null || file.ModifiedUnixSeconds + 1 < startedAt) continue;
+                    var stamp = file.ModifiedUnixSeconds.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+                    if (_state.Get("crash.file") == file.Path && _state.Get("crash.file_time") == stamp) return empty; // Already sent.
+                    _state.Set("crash.file", file.Path);
+                    _state.Set("crash.file_time", stamp);
+                    var text = file.ReadTail?.Invoke(CrashStacks.TailBytes);
+                    return CrashStacks.Parse(text, file.Source, _platform, _homeDirs);
+                }
+            }
+            catch (Exception error)
+            {
+                if (_options.Debug) _log.Warning("could not read the crash data: " + error.Message);
+            }
+            return empty;
         }
 
         // Public API ---------------------------------------------------------
@@ -694,6 +725,7 @@ namespace ManalensSdk
                     var version = _state.Get("session.app_version");
                     if (build != "") crash["previous_build"] = build;
                     if (version != "") crash["previous_app_version"] = version;
+                    foreach (var item in CrashData(_sessionStartedAt)) crash[item.Key] = item.Value;
                     Enqueue(Build("track", "app_crash", crash, _lastActivityAt));
                 }
                 EndSession(_lastActivityAt);

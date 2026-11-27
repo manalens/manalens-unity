@@ -105,6 +105,8 @@ namespace ManalensSdk
         /// Never true in the Unity Editor, also not in editor batch runs (tests, builds).
         /// </summary>
         public bool IsServerBuild;
+        /// <summary>The files that can hold Unity's crash data of an earlier run. Null: none (editor, mobile, web, tests).</summary>
+        public ICrashFiles CrashFiles;
     }
 
     /// <summary>The kind of a captured engine log message.</summary>

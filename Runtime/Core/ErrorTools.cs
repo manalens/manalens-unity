@@ -140,6 +140,22 @@ namespace ManalensSdk
             return MaskLongTokens(text);
         }
 
+        /// <summary>
+        /// Cleans one crash stack frame (crash stacks): the home folders become ~,
+        /// URLs lose their user, query and fragment, and emails become [email].
+        /// Long names are kept: a frame such as an IL2CPP method name is code,
+        /// not a token, and the fingerprint needs it.
+        /// </summary>
+        public static string CleanStackFrame(string frame, IEnumerable<string> homeDirs)
+        {
+            var text = frame ?? "";
+            if (homeDirs != null)
+                foreach (var dir in homeDirs) text = CleanDir(text, dir);
+            text = CleanHomePatterns(text);
+            text = CleanUrls(text);
+            return MaskEmails(text);
+        }
+
         /// <summary>The player's home folders, as the OS names them.</summary>
         public static List<string> HomeDirs()
         {

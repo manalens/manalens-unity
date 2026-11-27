@@ -123,6 +123,8 @@ namespace Manalens.Tests
         public int? UtcOffsetMinutes;
         /// <summary>A dedicated server player (UNITY_SERVER or batch mode).</summary>
         public bool ServerBuild;
+        /// <summary>Unity's crash files on this device (crash stacks).</summary>
+        public ICrashFiles CrashFiles;
 
         public static ManalensOptions Options(Action<ManalensOptions> change = null)
         {
@@ -136,7 +138,7 @@ namespace Manalens.Tests
         {
             Transport = new FakeTransport();
             Log = new ListLog();
-            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes, IsServerBuild = ServerBuild }, Storage, OnlyITransport ? new OnlyITransport(Transport) : (ITransport)Transport, Clock, Log)
+            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes, IsServerBuild = ServerBuild, CrashFiles = CrashFiles }, Storage, OnlyITransport ? new OnlyITransport(Transport) : (ITransport)Transport, Clock, Log)
             {
                 Random = () => 0.5,
             };
@@ -151,5 +153,17 @@ namespace Manalens.Tests
         public static string Str(this JsonElement e, string name) => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
         public static JsonElement Props(this JsonElement e) => e.GetProperty("properties");
         public static string Name(this JsonElement e) => e.Str("event") ?? e.Str("type");
+    }
+
+    /// <summary>Crash files in memory: each has a path, a time, a source, and the text.</summary>
+    sealed class FakeCrashFiles : ICrashFiles
+    {
+        public readonly List<CrashFile> Files = new List<CrashFile>();
+        public int Reads;
+
+        public void Add(string path, double modified, string source, string text) =>
+            Files.Add(new CrashFile { Path = path, ModifiedUnixSeconds = modified, Source = source, ReadTail = max => { Reads++; return text.Length > max ? text.Substring(text.Length - max) : text; } });
+
+        public IEnumerable<CrashFile> Candidates() => Files;
     }
 }

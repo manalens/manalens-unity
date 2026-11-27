@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 (2026-11-27)
+
+- Crash stacks (P-2831): in Windows, macOS, and Linux players, `app_crash` now says where the game crashed. At the next launch, the SDK reads the crash data that Unity wrote for the crashed run (Windows: the newest crash folder's `error.log`; all desktop players: `Player-prev.log`) and adds `stack`, `error_type`, `message`, `fingerprint`, `crash_source`, and `symbolicated`. Mono players give the managed C# frames first. No crash handler; at most 256 KB read; `crash.dmp` is never sent; each file once; nothing before consent. New option `CaptureCrashStacks` (default `true`) and `AppEnvironment.CrashFiles` for a custom engine layer.
+
 ## 0.4.0 (2026-11-27)
 
 - A `413` (batch too large) no longer drops the batch (P-2853). For a batch of more than 1 event, the SDK keeps the events and sends again at once with half the batch. It does not back off and does not count a failure. A `413` for 1 event drops that event and raises `SendFailed(413, 1)`, as the other refused `4xx`. After a `2xx`, batches use the normal size (`FlushAt`, at most 50) again.

@@ -59,6 +59,13 @@ namespace ManalensSdk
         /// <summary>Automatic errors in one session; TrackError() calls do not count.</summary>
         public int MaxAutoErrorsPerSession = 50;
         /// <summary>
+        /// Desktop players (Windows, macOS, Linux): at the next launch, add the
+        /// crash data that Unity wrote (the crash folder's error.log, or the
+        /// previous Player log) to app_crash: stack, error_type, message,
+        /// fingerprint, crash_source and symbolicated. No crash handler.
+        /// </summary>
+        public bool CaptureCrashStacks = true;
+        /// <summary>
         /// Gets a copy of each event before it is queued: track events (also
         /// error and the automatic events such as session_start), identify and traits.
         /// Keys: type, event, properties, traits, user_id, message_id,

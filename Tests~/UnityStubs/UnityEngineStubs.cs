@@ -23,6 +23,9 @@ namespace UnityEngine
         public static RuntimePlatform platform => RuntimePlatform.WindowsPlayer;
         public static string version => "1.0";
         public static string persistentDataPath => "";
+        public static string consoleLogPath => "";
+        public static string companyName => "";
+        public static string productName => "";
         public static bool isEditor => false;
         public static bool isBatchMode => false;
         public static SystemLanguage systemLanguage => SystemLanguage.English;

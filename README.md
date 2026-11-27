@@ -49,6 +49,8 @@ Manalens.TrackError("Save failed", new TrackErrorOptions { ErrorType = "SaveFail
 
 The SDK sends `game_open`, `session_start`, `session_end`, captured exceptions and `app_crash` (after a crash; not on WebGL, where a closed tab has no quit event) for you.
 
+**Crash stacks.** In Windows, macOS, and Linux players, `app_crash` also says where the game crashed. At the next launch, the SDK reads the crash data that Unity wrote: on Windows the newest crash folder (`%TEMP%\<company>\<product>\Crashes`, file `error.log`), else the previous Player log (`Player-prev.log` next to `Application.consoleLogPath`). It adds `stack` (managed C# frames first with Mono, then native frames), `error_type` (for example `SIGSEGV` or `EXCEPTION_ACCESS_VIOLATION`), `message`, `fingerprint`, `crash_source` (`unity_crash_folder` or `unity_player_log`), and `symbolicated`. The SDK installs no crash handler, reads at most 256 KB, never uploads `crash.dmp`, never sends the same file twice, and reads nothing before consent. Home folders and emails are removed. Set `CaptureCrashStacks = false` to turn it off.
+
 The `Basic` sample (Package Manager > Manalens > Samples) has a scene with buttons that send an event and an error.
 
 ## Traits

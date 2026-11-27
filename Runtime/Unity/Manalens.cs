@@ -109,6 +109,7 @@ namespace ManalensSdk
                 UtcOffsetMinutes = CurrentUtcOffsetMinutes(),
                 DefaultAppVersion = Application.version,
                 IsServerBuild = IsServerBuild(),
+                CrashFiles = UnityCrashFiles.ForThisPlayer(),
             };
 #if UNITY_WEBGL && !UNITY_EDITOR
             IStorage storage = BrowserStorage.Create();
