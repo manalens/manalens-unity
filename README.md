@@ -80,6 +80,10 @@ Manalens.LinkSteam(ticket.Data);
 - A refused ticket is not sent again. After a `429` with `Retry-After` (60 s or less), the SDK tries once more, but not after `SetConsent(false)` or `Reset()` during the wait.
 - Say in your privacy notice that your game sends a Steam ticket to Manalens to confirm ownership.
 
+## No network
+
+The SDK keeps events on disk and sends them in batches. When `Application.internetReachability` is `NotReachable`, the SDK starts no request: the events stay in the queue, and the wait after failed sends does not grow. When the device has a network again, the next tick (`FlushIntervalSeconds`) sends at once. Other `internetReachability` values do not prove a network, so a real network error still waits and tries again (2 s, 4 s, and so on, at most 300 s).
+
 ## BeforeSend
 
 `BeforeSend` gets a copy of each event (track, identify, traits, error, automatic events) before it is queued. Return it (changed or not), or `null` to drop it. The SDK takes `event`, `properties`, `traits`, and `user_id` from the result. If the result changes or removes `type`, `message_id`, `anonymous_id`, `session_id`, or `context.app`, the SDK sends the original event.

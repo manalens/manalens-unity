@@ -10,6 +10,7 @@ namespace UnityEngine
     public enum RuntimePlatform { OSXEditor = 0, OSXPlayer = 1, WindowsPlayer = 2, WindowsEditor = 7, IPhonePlayer = 8, Android = 11, LinuxPlayer = 13, LinuxEditor = 16, WebGLPlayer = 17 }
     public enum SystemLanguage { Arabic, Chinese, ChineseSimplified, ChineseTraditional, Czech, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hungarian, Indonesian, Italian, Japanese, Korean, Norwegian, Polish, Portuguese, Romanian, Russian, Spanish, Swedish, Thai, Turkish, Ukrainian, Vietnamese, Unknown }
     public enum LogType { Error = 0, Assert = 1, Warning = 2, Log = 3, Exception = 4 }
+    public enum NetworkReachability { NotReachable = 0, ReachableViaCarrierDataNetwork = 1, ReachableViaLocalAreaNetwork = 2 }
     public enum RuntimeInitializeLoadType { AfterSceneLoad = 0, BeforeSceneLoad = 1, AfterAssembliesLoaded = 2, BeforeSplashScreen = 3, SubsystemRegistration = 4 }
     [Flags] public enum HideFlags { None = 0, HideInHierarchy = 1, HideAndDontSave = 61 }
 
@@ -25,6 +26,7 @@ namespace UnityEngine
         public static bool isEditor => false;
         public static bool isBatchMode => false;
         public static SystemLanguage systemLanguage => SystemLanguage.English;
+        public static NetworkReachability internetReachability => NetworkReachability.ReachableViaLocalAreaNetwork;
         public static void Quit() { }
         public static void OpenURL(string url) { }
         internal static void Touch() { logMessageReceivedThreaded?.Invoke("", "", LogType.Log); wantsToQuit?.Invoke(); quitting?.Invoke(); }

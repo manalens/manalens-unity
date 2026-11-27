@@ -624,6 +624,105 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void OfflineSkipsTheSendWithoutAFailureOrABackoff()
+        {
+            // P-2853: no network is not a failed send. No request, the events stay, no backoff.
+            var device = new Device();
+            var client = device.Launch();
+            var offline = true;
+            client.IsOffline = () => offline;
+            var flushed = new List<(int, bool)>();
+            client.Flushed += (sent, ok) => flushed.Add((sent, ok));
+            var failed = new List<(int, int)>();
+            client.SendFailed += (s, n) => failed.Add((s, n));
+            client.Update();
+            client.SendNow();
+            for (var i = 0; i < 60; i++)
+            {
+                device.Clock.Advance(10); // 10 minutes of ticks.
+                client.Update();
+            }
+            Assert.Empty(device.Transport.Requests);
+            Assert.Equal(2, client.QueueSize);
+            Assert.Empty(flushed);
+            Assert.Empty(failed);
+            Assert.True(client.IsIdle); // A shutdown does not wait for a send that cannot start.
+            // Online: the next tick sends at once.
+            offline = false;
+            device.Transport.Statuses.Enqueue(503);
+            device.Clock.Advance(10);
+            client.Update();
+            Assert.Single(device.Transport.Requests);
+            // The failure counter did not grow while offline: the first failure waits 2 s times the jitter (1.5 s), not 300 s.
+            client.SendNow();
+            Assert.Single(device.Transport.Requests);
+            device.Clock.Advance(1.6);
+            client.SendNow();
+            Assert.Equal(2, device.Transport.Requests.Count);
+            Assert.Equal(0, client.QueueSize);
+        }
+
+        [Fact]
+        public void BackOnlineClearsTheBackoffFromBeforeAndSendsAtTheNextTick()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            client.Random = () => 0.999;
+            // Network errors while the engine still reports a network: the backoff grows to 300 s.
+            for (var i = 0; i < 10; i++)
+            {
+                device.Transport.Statuses.Enqueue(0);
+                var before = device.Transport.Requests.Count;
+                while (device.Transport.Requests.Count == before)
+                {
+                    device.Clock.Advance(1);
+                    client.SendNow();
+                }
+            }
+            var attempts = device.Transport.Requests.Count;
+            // The engine reports no network: the ticks start no request.
+            var offline = true;
+            client.IsOffline = () => offline;
+            device.Clock.Advance(10);
+            client.Update();
+            Assert.Equal(attempts, device.Transport.Requests.Count);
+            // The network is back after 20 s, long before the 300 s wait ends: the next tick sends.
+            offline = false;
+            device.Clock.Advance(10);
+            client.Update();
+            Assert.Equal(attempts + 1, device.Transport.Requests.Count);
+            Assert.Equal(0, client.QueueSize);
+        }
+
+        [Fact]
+        public void ANetworkErrorWhileOnlineStillBacksOff()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            client.IsOffline = () => false;
+            device.Transport.Statuses.Enqueue(0);
+            client.Update();
+            Assert.Single(device.Transport.Requests);
+            Assert.Equal(2, client.QueueSize);
+            client.SendNow();
+            Assert.Single(device.Transport.Requests);
+            device.Clock.Advance(1.6);
+            client.SendNow();
+            Assert.Equal(2, device.Transport.Requests.Count);
+        }
+
+        [Fact]
+        public void ABrokenOfflineCheckDoesNotBlockTheSends()
+        {
+            var device = new Device();
+            var client = device.Launch();
+            client.IsOffline = () => throw new InvalidOperationException("no reachability");
+            client.Update();
+            Assert.Single(device.Transport.Requests);
+            Assert.Equal(0, client.QueueSize);
+        }
+
+        [Fact]
         public void ARefusalLogsTheReasonOfTheCollectorAndIsNotSentAgain()
         {
             var device = new Device();

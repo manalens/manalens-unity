@@ -119,6 +119,9 @@ namespace ManalensSdk
             client.Flushed += (sent, ok) => Flushed?.Invoke(sent, ok);
             client.SendFailed += (status, dropped) => SendFailed?.Invoke(status, dropped);
             client.SteamLinked += (linked, status, code) => SteamLinked?.Invoke(linked, status, code);
+            // No network (P-2853): skip the send, keep the events, and do not back off.
+            // Only NotReachable is proof of no network; the other values do not prove a network.
+            client.IsOffline = () => Application.internetReachability == NetworkReachability.NotReachable;
             if (!client.Init()) return false;
             _client = client;
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;

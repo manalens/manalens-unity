@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A `413` (batch too large) no longer drops the batch (P-2853). For a batch of more than 1 event, the SDK keeps the events and sends again at once with half the batch. It does not back off and does not count a failure. A `413` for 1 event drops that event and raises `SendFailed(413, 1)`, as the other refused `4xx`. After a `2xx`, batches use the normal size (`FlushAt`, at most 50) again.
+- No send while the device has no network (P-2853). When `Application.internetReachability` is `NotReachable`, the SDK starts no request, keeps the events, and does not count a failure or back off. When the device has a network again, the next tick sends at once (before, a long time offline made the SDK wait up to 300 s). A real network error during a send still backs off. New `AnalyticsClient.IsOffline` (a `Func<bool>`) for a custom engine layer.
 
 ## 0.3.0 (2026-11-27)
 

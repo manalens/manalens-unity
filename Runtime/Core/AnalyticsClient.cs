@@ -104,8 +104,20 @@ namespace ManalensSdk
         public Func<double> Random = new Random().NextDouble;
         /// <summary>Makes message, session and anonymous IDs. Tests replace it.</summary>
         public Func<string> NewId = Ids.NewUuid;
+        /// <summary>
+        /// True when the engine reliably reports that the device has no network
+        /// (P-2853). Null (default) or false: the SDK sends as usual. The Unity
+        /// layer sets it to Application.internetReachability == NotReachable.
+        /// Called on the thread that calls Update(), before each send. While it
+        /// is true the SDK starts no request, keeps the events, and does not
+        /// change the failure counter or the backoff. When it is false again,
+        /// the SDK clears the backoff and sends at the next tick.
+        /// </summary>
+        public Func<bool> IsOffline;
 
         bool _initialized, _disabled, _identityActive, _focused = true;
+        /// <summary>The last IsOffline() result that TrySend() saw.</summary>
+        bool _offline;
         /// <summary>A server build without TrackServerBuilds: no automatic client events.</summary>
         bool _serverQuiet;
         StateFile _state = new StateFile();
@@ -624,8 +636,8 @@ namespace ManalensSdk
         public string LastSendResult { get { lock (_gate) return _lastSendResult; } }
         /// <summary>The JSON of the last RecentCount queued events, oldest first, also after they were sent.</summary>
         public string[] RecentEvents { get { lock (_gate) return _recent.ToArray(); } }
-        /// <summary>No request in flight, and nothing to send now (empty queue, or waiting after a failure).</summary>
-        public bool IsIdle { get { lock (_gate) return !_sending && (_queue.Count == 0 || Now() < _backoffUntil || !_identityActive); } }
+        /// <summary>No request in flight, and nothing to send now (empty queue, waiting after a failure, or no network).</summary>
+        public bool IsIdle { get { lock (_gate) return !_sending && (_queue.Count == 0 || Now() < _backoffUntil || !_identityActive || _offline); } }
         public ManalensOptions Options => _options;
 
         // Identity and sessions ----------------------------------------------
@@ -1140,6 +1152,14 @@ namespace ManalensSdk
                 if (_queue.Count == 0) _flushRequested = false;
                 return;
             }
+            if (CheckOffline())
+            {
+                // No network: start no request and keep the events. Not a failure:
+                // the failure counter and the backoff do not change. The next tick
+                // asks again.
+                _flushRequested = false;
+                return;
+            }
             if (Now() < _backoffUntil) return; // Keep the request: send when the wait is over.
             Prune();
             if (_queue.Count == 0)
@@ -1197,7 +1217,39 @@ namespace ManalensSdk
             }
         }
 
-        static readonly Regex RefusalCode = new Regex("\"code\"\\s*:\\s*\"([A-Z_]+)\"", RegexOptions.CultureInvariant);
+        /// <summary>
+        /// Asks IsOffline(). On the change from offline to online, clears the
+        /// backoff and the failure counter: the wait came from the time without
+        /// a network, so the first send after it goes at once.
+        /// </summary>
+        bool CheckOffline()
+        {
+            var offline = false;
+            if (IsOffline != null)
+            {
+                try { offline = IsOffline(); }
+                catch (Exception e)
+                {
+                    // Never block the sends on a broken check.
+                    if (_options.Debug) _log.Info("offline check failed (" + e.Message + "); sending");
+                }
+            }
+            if (offline == _offline) return offline;
+            _offline = offline;
+            if (offline)
+            {
+                if (_options.Debug) _log.Info("no network: sends paused, " + _queue.Count + " events kept");
+            }
+            else
+            {
+                _backoffUntil = 0;
+                _failures = 0;
+                if (_options.Debug) _log.Info("network back: sending now");
+            }
+            return offline;
+        }
+
+        static readonly Regex RefusalCode =new Regex("\"code\"\\s*:\\s*\"([A-Z_]+)\"", RegexOptions.CultureInvariant);
         static readonly Regex RefusalMessage = new Regex("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"", RegexOptions.CultureInvariant);
         static readonly Regex RejectedField = new Regex("\"rejected\"\\s*:\\s*(\\d+)", RegexOptions.CultureInvariant);
 
