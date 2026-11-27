@@ -51,6 +51,8 @@ namespace ManalensSdk
         internal static void Tick(AnalyticsClient client)
         {
             if (!Available || client == null || !client.Options.SteamLink || !client.IsActive) return;
+            // Only after the first accepted batch of the launch + 20 s: the server trusts a link of an install with events before it.
+            if (!client.SteamLinkReady) return;
             if (_triesLeft < 0) _triesLeft = AutoTries;
             if (_triesLeft == 0 || Time.realtimeSinceStartup < _nextTryAt) return;
             _triesLeft--;

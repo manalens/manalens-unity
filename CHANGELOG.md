@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.0 (2026-11-27)
+
+- `SteamLink = true` now waits until the first event batch of the launch was accepted (a 2xx answer), plus 20 seconds, before it links the Steam account. Manalens merges the installs of one Steam account only when the install has its own events before a link. Before, on a first launch the link came before the first events were stored, so that install could not merge. A launch with no accepted batch (offline) makes no automatic link. `Manalens.LinkSteam()` from the game does not wait, as before; call it after your first events were sent if you link by hand. New: `AnalyticsClient.SteamLinkReady` and `SteamLinkDelaySeconds`.
 ## 0.5.1 (2026-11-27)
 
 - Fix: a crash stack longer than 1024 characters made the collector refuse the whole `app_crash` (`INVALID_EVENT`), so the crash was lost. The stack now keeps the top frames, at most 1024 characters, the collector limit for a property value. Found in a production test of the Godot SDK, which had the same limit.

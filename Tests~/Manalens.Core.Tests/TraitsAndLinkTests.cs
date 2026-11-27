@@ -83,6 +83,26 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void SteamLinkIsReadyOnly20SecondsAfterTheFirstAcceptedBatch()
+        {
+            var device = new Device();
+            var client = device.Launch(Device.Options(o => { o.FlushAt = 50; o.SteamLink = true; }));
+            Assert.False(client.SteamLinkReady);
+            device.Transport.Statuses.Enqueue(503);
+            client.SendNow();
+            device.Clock.Advance(60);
+            Assert.False(client.SteamLinkReady); // A failed batch does not count.
+            client.Track("level_start");
+            client.SendNow(); // 202
+            Assert.False(client.SteamLinkReady);
+            device.Clock.Advance(AnalyticsClient.SteamLinkDelaySeconds - 1);
+            Assert.False(client.SteamLinkReady);
+            device.Clock.Advance(1);
+            Assert.True(client.SteamLinkReady);
+            Assert.Equal(20, AnalyticsClient.SteamLinkDelaySeconds);
+        }
+
+        [Fact]
         public void LinkSteamPostsTheHexTicketAndTheAnonymousIdToTheApiHost()
         {
             var (device, client, results) = Linker(o => o.Endpoint = "https://events.manalens.dev");

@@ -21,7 +21,7 @@ namespace ManalensSdk
     public sealed class AnalyticsClient
     {
         public const string LibraryName = "Manalens Unity SDK";
-        public const string LibraryVersion = "0.5.1";
+        public const string LibraryVersion = "0.6.0";
         public const string Engine = "unity";
         public const string StateName = "manalens_state";
         public const string QueueName = "manalens_queue";
@@ -70,6 +70,13 @@ namespace ManalensSdk
         public static readonly string[] ProtectedTraits = { "email", "itch_user_id", "stripe_customer_id", "paddle_customer_id" };
         /// <summary>LinkSteam(): the identity of the Steam Web API ticket. The server accepts only this one.</summary>
         public const string SteamTicketIdentity = "manalens";
+        /// <summary>
+        /// The SteamLink option links this long after the first accepted batch
+        /// of the launch, so the collector has stored the install's events
+        /// first: Manalens merges installs only when the install has its own
+        /// events before a link.
+        /// </summary>
+        public const double SteamLinkDelaySeconds = 20;
         /// <summary>LinkSteam() waits for a 429 Retry-After of at most this many seconds, once.</summary>
         public const double LinkMaxRetryAfterSeconds = 60;
         const string LogPrefix = "Manalens:";
@@ -99,6 +106,7 @@ namespace ManalensSdk
         readonly IStorage _storage;
         readonly ITransport _transport;
         readonly IClock _clock;
+        double _firstBatchAcceptedAt = -1; // clock seconds of the first 2xx batch of this launch; -1: none yet
         readonly ILog _log;
         /// <summary>A number in [0, 1) for the backoff jitter. Tests replace it.</summary>
         public Func<double> Random = new Random().NextDouble;
@@ -1347,6 +1355,7 @@ namespace ManalensSdk
             // dropped too. Network errors and 5xx stay and back off.
             var rejected = status >= 400 && status < 500 && status != 408 && status != 429 && !split;
             if (ok) _batchLimit = int.MaxValue;
+            if (ok && _firstBatchAcceptedAt < 0) _firstBatchAcceptedAt = Now();
             if (split)
             {
                 _batchLimit = Math.Max(1, count / 2);
@@ -1765,6 +1774,13 @@ namespace ManalensSdk
 
         double TickInterval() => Math.Max(1, _options.FlushIntervalSeconds);
         double Now() => _clock.UnixSeconds;
+
+        /// <summary>
+        /// true when a batch of this launch was accepted (2xx) at least
+        /// SteamLinkDelaySeconds ago: the SteamLink option links only then.
+        /// LinkSteam() from the game does not wait for it.
+        /// </summary>
+        public bool SteamLinkReady => _firstBatchAcceptedAt >= 0 && Now() >= _firstBatchAcceptedAt + SteamLinkDelaySeconds;
         static string Left(string value, int length) => value.Length > length ? value.Substring(0, length) : value;
 
         void RaiseFlushed(int sent, bool ok)

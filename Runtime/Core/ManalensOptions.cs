@@ -38,7 +38,9 @@ namespace ManalensSdk
         /// true: verify the Steam account once per launch, after consent
         /// (P-2815). Unity: needs Steamworks.NET (the define
         /// MANALENS_STEAMWORKS_NET) and a started Steam API; the SDK asks for a
-        /// Web API ticket with the identity "manalens" and sends it. Without
+        /// Web API ticket with the identity "manalens" and sends it, 20 seconds
+        /// after the first accepted event batch of the launch (Manalens merges
+        /// installs only when the install has events before a link). Without
         /// Steamworks.NET it does nothing. Off by default.
         /// </summary>
         public bool SteamLink;
