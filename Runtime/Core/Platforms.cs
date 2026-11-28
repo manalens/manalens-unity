@@ -1,7 +1,24 @@
+using System;
+
 namespace ManalensSdk
 {
     public static class Platforms
     {
+        /// <summary>
+        /// The device that the SDK detects (context.app.device), or null when
+        /// it detects none. "steam_deck": Steam sets the environment variable
+        /// SteamDeck=1 on a Steam Deck (SteamOS or Windows). The platform does
+        /// not change: it stays the OS (linux on SteamOS).
+        /// </summary>
+        public static string DetectDevice(Func<string, string> getEnvironmentVariable)
+        {
+            if (getEnvironmentVariable == null) return null;
+            string steamDeck;
+            try { steamDeck = getEnvironmentVariable("SteamDeck"); }
+            catch (Exception) { return null; } // A platform without environment variables, or no permission.
+            return steamDeck == "1" ? "steam_deck" : null;
+        }
+
         /// <summary>
         /// Maps the name of a UnityEngine.RuntimePlatform value
         /// (Application.platform.ToString()) to the collector platform:

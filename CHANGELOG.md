@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0 (2026-11-28)
+
+- Steam Deck detection (P-2882): when the environment variable `SteamDeck` is `1` (Steam sets it on a Steam Deck), every event has `context.app.device` `steam_deck`. On other devices the key is not sent. `context.app.platform` does not change: it stays `linux` on SteamOS, or `windows` on a Deck with Windows. The SDK reads the variable once, in `Init()`. New: `Platforms.DetectDevice()` and `AppEnvironment.GetEnvironmentVariable` (default `System.Environment.GetEnvironmentVariable`) for a custom engine layer and for tests.
+
 ## 0.7.0 (2026-11-28)
 
 - Breaking: the crash event is now `game_crash` (was `app_crash`), the hang `error_type` is now `game_hang` (was `app_hang`), and `hang_duration_ms` is now `hang_duration_s` in seconds (one decimal, for example `6.2`). The SDK does not send or accept the old names. Events that an older version queued on disk keep their old name.

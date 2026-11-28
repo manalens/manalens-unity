@@ -123,6 +123,63 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void SteamDeckSetsTheDeviceAndKeepsThePlatform()
+        {
+            var device = new Device();
+            device.EnvironmentVariables["SteamDeck"] = "1";
+            var client = device.Launch(platform: "linux");
+            client.Track("level_complete");
+            client.TrackError("Save failed");
+            client.RequestFlush();
+            client.Update();
+            Assert.True(device.Transport.AllEvents.Count >= 4);
+            Assert.All(device.Transport.AllEvents, e =>
+            {
+                var app = e.GetProperty("context").GetProperty("app");
+                Assert.Equal("steam_deck", app.Str("device"));
+                Assert.Equal("linux", app.Str("platform"));
+            });
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("0")]
+        [InlineData("")]
+        [InlineData("true")]
+        public void NoSteamDeckSendsNoDeviceKey(string value)
+        {
+            var device = new Device();
+            if (value != null) device.EnvironmentVariables["SteamDeck"] = value;
+            var client = device.Launch();
+            client.Track("level_complete");
+            client.RequestFlush();
+            client.Update();
+            Assert.NotEmpty(device.Transport.AllEvents);
+            Assert.All(device.Transport.AllEvents, e => Assert.False(e.GetProperty("context").GetProperty("app").TryGetProperty("device", out _)));
+        }
+
+        [Fact]
+        public void TheEnvironmentIsReadOnceAtInit()
+        {
+            var device = new Device();
+            device.EnvironmentVariables["SteamDeck"] = "1";
+            var client = device.Launch();
+            device.EnvironmentVariables.Clear();
+            client.Track("level_complete");
+            client.RequestFlush();
+            client.Update();
+            Assert.All(device.Transport.AllEvents, e => Assert.Equal("steam_deck", e.GetProperty("context").GetProperty("app").Str("device")));
+        }
+
+        [Fact]
+        public void DetectDeviceHandlesAMissingOrFailingReader()
+        {
+            Assert.Null(Platforms.DetectDevice(null));
+            Assert.Null(Platforms.DetectDevice(_ => throw new System.Security.SecurityException()));
+            Assert.Equal("steam_deck", Platforms.DetectDevice(name => name == "SteamDeck" ? "1" : null));
+        }
+
+        [Fact]
         public void AppVersionDefaultsToTheEngineVersion()
         {
             var device = new Device();
@@ -166,7 +223,7 @@ namespace Manalens.Tests
             {
                 Assert.Equal("track", e.Str("type"));
                 Assert.Equal("app", e.Str("channel"));
-                Assert.Equal("0.7.0", e.Str("version"));
+                Assert.Equal("0.8.0", e.Str("version"));
                 Assert.Matches("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", e.Str("message_id"));
                 Assert.Equal(client.AnonymousId, e.Str("anonymous_id"));
                 Assert.Equal(client.SessionId, e.Str("session_id"));
@@ -180,6 +237,7 @@ namespace Manalens.Tests
                 Assert.Equal("unity", app.Str("engine"));
                 Assert.Equal("571", app.Str("build"));
                 Assert.Equal("steam", app.Str("storefront"));
+                Assert.False(app.TryGetProperty("device", out _));
                 Assert.False(e.TryGetProperty("user_id", out _));
             }
             var open = request.Events[1].Props();

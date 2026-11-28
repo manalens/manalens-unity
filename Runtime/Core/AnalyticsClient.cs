@@ -21,7 +21,7 @@ namespace ManalensSdk
     public sealed class AnalyticsClient
     {
         public const string LibraryName = "Manalens Unity SDK";
-        public const string LibraryVersion = "0.7.0";
+        public const string LibraryVersion = "0.8.0";
         public const string Engine = "unity";
         public const string StateName = "manalens_state";
         public const string QueueName = "manalens_queue";
@@ -148,6 +148,7 @@ namespace ManalensSdk
         // Back to no limit after any 2xx.
         int _batchLimit = int.MaxValue;
         string _appVersion = "", _build = "", _storefront = "", _platform = "other", _url = "";
+        string _device; // context.app.device (steam_deck), or null: not sent.
         readonly List<QueueEntry> _queue = new List<QueueEntry>();
         bool _queueDirty, _sending, _flushRequested;
         string[] _deferredIdentify;
@@ -292,6 +293,7 @@ namespace ManalensSdk
                     _log.Warning("Platform must be one of " + string.Join(", ", PlatformValues) + "; detected instead");
                 else if (platform != "")
                     _platform = platform;
+                _device = Platforms.DetectDevice(_env.GetEnvironmentVariable);
                 _initialized = true;
                 _serverQuiet = _env.IsServerBuild && !_options.TrackServerBuilds;
                 if (_serverQuiet) _log.Info("server build (UNITY_SERVER or batch mode); no game_open, session or game_crash events. Set TrackServerBuilds to send them");
@@ -1047,6 +1049,7 @@ namespace ManalensSdk
             if (_appVersion != "") app.Add(new KeyValuePair<string, object>("app_version", _appVersion));
             if (_build != "") app.Add(new KeyValuePair<string, object>("build", _build));
             if (_storefront != "") app.Add(new KeyValuePair<string, object>("storefront", _storefront));
+            if (_device != null) app.Add(new KeyValuePair<string, object>("device", _device));
             return app;
         }
 

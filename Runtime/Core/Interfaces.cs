@@ -112,6 +112,12 @@ namespace ManalensSdk
         /// false (tests): call AnalyticsClient.CheckHang() to run one check.
         /// </summary>
         public bool HangWatchdogThread;
+        /// <summary>
+        /// Reads an environment variable (null: not set). The SDK reads it once,
+        /// in Init(). Default: System.Environment.GetEnvironmentVariable. Tests
+        /// give their own function.
+        /// </summary>
+        public Func<string, string> GetEnvironmentVariable = System.Environment.GetEnvironmentVariable;
     }
 
     /// <summary>The kind of a captured engine log message.</summary>

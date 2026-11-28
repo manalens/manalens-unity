@@ -125,6 +125,8 @@ namespace Manalens.Tests
         public bool ServerBuild;
         /// <summary>Unity's crash files on this device (crash stacks).</summary>
         public ICrashFiles CrashFiles;
+        /// <summary>The environment variables of this device. Empty by default, so the tests do not read the real ones.</summary>
+        public Dictionary<string, string> EnvironmentVariables = new Dictionary<string, string>();
 
         public static ManalensOptions Options(Action<ManalensOptions> change = null)
         {
@@ -138,7 +140,7 @@ namespace Manalens.Tests
         {
             Transport = new FakeTransport();
             Log = new ListLog();
-            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes, IsServerBuild = ServerBuild, CrashFiles = CrashFiles }, Storage, OnlyITransport ? new OnlyITransport(Transport) : (ITransport)Transport, Clock, Log)
+            var client = new AnalyticsClient(options ?? Options(), new AppEnvironment { Platform = platform, Locale = "en_US", DefaultAppVersion = "1.4.0", UtcOffsetMinutes = UtcOffsetMinutes, IsServerBuild = ServerBuild, CrashFiles = CrashFiles, GetEnvironmentVariable = name => EnvironmentVariables.TryGetValue(name, out var value) ? value : null }, Storage, OnlyITransport ? new OnlyITransport(Transport) : (ITransport)Transport, Clock, Log)
             {
                 Random = () => 0.5,
             };
