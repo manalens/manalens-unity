@@ -314,7 +314,7 @@ public sealed class E2ERunner : MonoBehaviour
         Check(!_sdkLines.Exists(l => l.StartsWith("Error", StringComparison.Ordinal) && !l.Contains("E2E line")), "basic: no SDK error lines");
         _result["anonymous_id"] = Manalens.AnonymousId;
         _result["session"] = Manalens.SessionId;
-        _result["link_url"] = Manalens.LinkUrl("https://example.com/wiki");
+        _result["handoff_url"] = Manalens.GetHandoffUrl("https://example.com/wiki");
     }
 
     bool _throwInUpdate;

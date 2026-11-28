@@ -21,7 +21,7 @@ namespace ManalensSdk
     public sealed class AnalyticsClient
     {
         public const string LibraryName = "Manalens Unity SDK";
-        public const string LibraryVersion = "0.8.0";
+        public const string LibraryVersion = "0.9.0";
         public const string Engine = "unity";
         public const string StateName = "manalens_state";
         public const string QueueName = "manalens_queue";
@@ -48,7 +48,7 @@ namespace ManalensSdk
         /// <summary>The longest wait that a Retry-After header can ask for (1 hour).</summary>
         public const double MaxRetryAfterSeconds = 3600;
         /// <summary>Identity handoff: the URL parameter that the web SDK reads.</summary>
-        public const string HandoffParam = "mana_hid";
+        public const string HandoffParam = "mana_handoff";
         /// <summary>The values of ManalensOptions.Platform (the collector platforms).</summary>
         public static readonly string[] PlatformValues = { "windows", "macos", "linux", "web", "android", "ios", "ps5", "xbox_series", "xbox_one", "switch", "switch2", "other" };
         public static readonly string[] Storefronts = { "steam", "itch", "epic", "gog", "app_store", "play", "psn", "xbox", "nintendo", "other" };
@@ -657,11 +657,13 @@ namespace ManalensSdk
         }
 
         /// <summary>
-        /// Adds this install's handoff parameter (mana_hid=&lt;anonymous ID&gt;.&lt;unix seconds&gt;)
-        /// to a website URL, so the website joins the browser to this player.
-        /// Before consent (or before Init) the URL is returned unchanged.
+        /// Makes a link to your website that keeps this player: adds this install's handoff
+        /// parameter (mana_handoff=&lt;anonymous ID&gt;.&lt;unix seconds&gt;) to the URL.
+        /// The value holds the current time and the link works for 10 minutes, so call it
+        /// when the player clicks. Before consent (or before Init, or without an anonymous ID)
+        /// the URL is returned unchanged.
         /// </summary>
-        public string LinkUrl(string url)
+        public string GetHandoffUrl(string url)
         {
             lock (_gate)
             {

@@ -72,7 +72,7 @@ namespace Manalens.Tests
             Assert.Empty(device.Storage.Blobs);
             Assert.Equal(0, device.Storage.Writes);
             Assert.Equal("", client.AnonymousId);
-            Assert.Equal("https://x.example/", client.LinkUrl("https://x.example/"));
+            Assert.Equal("https://x.example/", client.GetHandoffUrl("https://x.example/"));
             Assert.DoesNotContain(device.Log.Lines, line => line.StartsWith("warning") || line.StartsWith("error"));
         }
 
@@ -223,7 +223,7 @@ namespace Manalens.Tests
             {
                 Assert.Equal("track", e.Str("type"));
                 Assert.Equal("app", e.Str("channel"));
-                Assert.Equal("0.8.0", e.Str("version"));
+                Assert.Equal("0.9.0", e.Str("version"));
                 Assert.Matches("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", e.Str("message_id"));
                 Assert.Equal(client.AnonymousId, e.Str("anonymous_id"));
                 Assert.Equal(client.SessionId, e.Str("session_id"));
@@ -390,14 +390,14 @@ namespace Manalens.Tests
         }
 
         [Fact]
-        public void LinkUrlAddsTheHandoffParameterAndKeepsTheFragment()
+        public void GetHandoffUrlAddsTheHandoffParameterAndKeepsTheFragment()
         {
             var device = new Device();
             var client = device.Launch();
             var id = client.AnonymousId;
-            Assert.Equal($"https://example.com/wiki?mana_hid={id}.1800000000", client.LinkUrl("https://example.com/wiki"));
-            Assert.Equal($"https://example.com/wiki?a=1&mana_hid={id}.1800000000#top", client.LinkUrl("https://example.com/wiki?a=1#top"));
-            Assert.Equal($"https://example.com/?mana_hid={id}.1800000000", client.LinkUrl("https://example.com/?"));
+            Assert.Equal($"https://example.com/wiki?mana_handoff={id}.1800000000", client.GetHandoffUrl("https://example.com/wiki"));
+            Assert.Equal($"https://example.com/wiki?a=1&mana_handoff={id}.1800000000#top", client.GetHandoffUrl("https://example.com/wiki?a=1#top"));
+            Assert.Equal($"https://example.com/?mana_handoff={id}.1800000000", client.GetHandoffUrl("https://example.com/?"));
         }
     }
 
@@ -1224,7 +1224,7 @@ namespace Manalens.Tests
             Assert.Empty(device.Transport.Requests);
             Assert.Empty(device.Storage.Blobs);
             Assert.Equal("", client.AnonymousId);
-            Assert.Equal("https://x.example/", client.LinkUrl("https://x.example/"));
+            Assert.Equal("https://x.example/", client.GetHandoffUrl("https://x.example/"));
 
             client.SetConsent(true);
             client.Track("after_consent");

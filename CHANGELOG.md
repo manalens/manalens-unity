@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0 (2026-11-28)
+
+- Breaking: the game-to-website identity handoff has new names (P-2889). `Manalens.LinkUrl(url)` is now `Manalens.GetHandoffUrl(url)` (and `AnalyticsClient.LinkUrl` is now `AnalyticsClient.GetHandoffUrl`). The URL parameter `mana_hid` is now `mana_handoff`. `LinkUrl` is removed, with no alias. The behavior does not change: it makes a link to your website that keeps this player, with the value `<anonymous ID>.<unix seconds>`, and it returns the URL unchanged before consent or without an anonymous ID. The value holds the current time and the link works for 10 minutes, so call it when the player clicks. Use a web SDK that reads `mana_handoff`.
+
 ## 0.8.0 (2026-11-28)
 
 - Steam Deck detection (P-2882): when the environment variable `SteamDeck` is `1` (Steam sets it on a Steam Deck), every event has `context.app.device` `steam_deck`. On other devices the key is not sent. `context.app.platform` does not change: it stays `linux` on SteamOS, or `windows` on a Deck with Windows. The SDK reads the variable once, in `Init()`. New: `Platforms.DetectDevice()` and `AppEnvironment.GetEnvironmentVariable` (default `System.Environment.GetEnvironmentVariable`) for a custom engine layer and for tests.

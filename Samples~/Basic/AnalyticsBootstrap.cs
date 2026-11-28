@@ -41,9 +41,12 @@ public class AnalyticsBootstrap : MonoBehaviour
         Manalens.Track("level_start", new Dictionary<string, object> { ["level"] = 1, ["mode"] = "story" });
     }
 
-    /// <summary>Call from a UI button: opens your website and joins the browser to this player.</summary>
+    /// <summary>
+    /// Call from a UI button: opens a link to your website that keeps this player.
+    /// The link holds the current time and works for 10 minutes, so make it when the player clicks.
+    /// </summary>
     public void OpenWiki()
     {
-        Application.OpenURL(Manalens.LinkUrl("https://example.com/wiki"));
+        Application.OpenURL(Manalens.GetHandoffUrl("https://example.com/wiki"));
     }
 }

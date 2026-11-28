@@ -242,12 +242,13 @@ namespace ManalensSdk
         }
 
         /// <summary>
-        /// Adds this install's handoff parameter to a website URL before the game
-        /// opens it, so the website joins the browser to this player:
-        /// <c>Application.OpenURL(Manalens.LinkUrl("https://example.com/wiki"));</c>
-        /// Before consent (or before Init) the URL is returned unchanged.
+        /// Makes a link to your website that keeps this player (it adds the handoff
+        /// parameter <c>mana_handoff</c>):
+        /// <c>Application.OpenURL(Manalens.GetHandoffUrl("https://example.com/wiki"));</c>
+        /// The value holds the current time and the link works for 10 minutes, so call it
+        /// when the player clicks. Before consent (or before Init) the URL is returned unchanged.
         /// </summary>
-        public static string LinkUrl(string url) => _client != null ? _client.LinkUrl(url) : url;
+        public static string GetHandoffUrl(string url) => _client != null ? _client.GetHandoffUrl(url) : url;
 
         public static string AnonymousId => _client?.AnonymousId ?? "";
         public static string SessionId => _client?.SessionId ?? "";
