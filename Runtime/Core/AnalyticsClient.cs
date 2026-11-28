@@ -31,7 +31,7 @@ namespace ManalensSdk
         /// game was killed during the hang, the next launch sends it.
         /// </summary>
         public const string HangName = "manalens_hang";
-        public const string HangErrorType = "app_hang";
+        public const string HangErrorType = "game_hang";
         /// <summary>
         /// Exists while the player has withdrawn consent. Checked apart from the
         /// state, so a lost or broken state file cannot undo an opt-out.
@@ -294,7 +294,7 @@ namespace ManalensSdk
                     _platform = platform;
                 _initialized = true;
                 _serverQuiet = _env.IsServerBuild && !_options.TrackServerBuilds;
-                if (_serverQuiet) _log.Info("server build (UNITY_SERVER or batch mode); no game_open, session or app_crash events. Set TrackServerBuilds to send them");
+                if (_serverQuiet) _log.Info("server build (UNITY_SERVER or batch mode); no game_open, session or game_crash events. Set TrackServerBuilds to send them");
                 LoadState();
                 _nextTickAt = Now() + TickInterval();
                 if (_pendingConsent.HasValue)
@@ -744,7 +744,7 @@ namespace ManalensSdk
                 // is not a crash. On web a closed or reloaded tab has no quit event,
                 // so every relaunch would look like a crash: no crash detection there.
                 // A hang that the game never recovered from (it was killed while
-                // stuck), else the last hang of the session that ended: app_crash links to it.
+                // stuck), else the last hang of the session that ended: game_crash links to it.
                 var hangId = SendSavedHang() ?? _state.Get("session.hang_message_id");
                 if (!_serverQuiet && !_state.GetBool("session.exited", false) && _state.GetBool("session.focused", true) && _platform != "web")
                 {
@@ -755,7 +755,7 @@ namespace ManalensSdk
                     if (build != "") crash["previous_build"] = build;
                     if (version != "") crash["previous_app_version"] = version;
                     foreach (var item in CrashData(_sessionStartedAt)) crash[item.Key] = item.Value;
-                    Enqueue(Build("track", "app_crash", crash, _lastActivityAt));
+                    Enqueue(Build("track", "game_crash", crash, _lastActivityAt));
                 }
                 EndSession(_lastActivityAt);
             }
@@ -770,7 +770,7 @@ namespace ManalensSdk
                 }, -1));
             }
             SaveState();
-            // Write game_open (the install signal) and app_crash to disk
+            // Write game_open (the install signal) and game_crash to disk
             // before any send: a process killed before the next save would lose them.
             SaveQueue();
             if (_deferredIdentify != null)
@@ -1581,8 +1581,8 @@ namespace ManalensSdk
 
         /// <summary>
         /// Starts hang detection: on when HangThresholdSeconds is over 0, not
-        /// on web (no threads, no app_crash) and not on a quiet server build
-        /// (no app_crash). The thread runs only when the engine layer asks for
+        /// on web (no threads, no game_crash) and not on a quiet server build
+        /// (no game_crash). The thread runs only when the engine layer asks for
         /// it (AppEnvironment.HangWatchdogThread); tests call CheckHang().
         /// </summary>
         void StartHangWatchdog()
@@ -1609,7 +1609,7 @@ namespace ManalensSdk
         }
 
         /// <summary>
-        /// The text of every app_hang (the same as the web SDK): the real
+        /// The text of every game_hang (the same as the web SDK): the real
         /// duration of a hang that ended, the threshold of a hang that never ended.
         /// </summary>
         static string HangMessage(double seconds) =>
@@ -1618,12 +1618,14 @@ namespace ManalensSdk
         /// <summary>The main thread is back after a hang: send it once, with its duration.</summary>
         void RecordRecoveredHang(HangWatchdog.Hang hang)
         {
-            var id = RecordError(HangMessage(hang.DurationMs / 1000.0), new TrackErrorOptions
+            // Seconds with one decimal (6.2), as in the other SDKs.
+            var durationSeconds = Math.Round(hang.DurationMs / 1000.0, 1, MidpointRounding.AwayFromZero);
+            var id = RecordError(HangMessage(durationSeconds), new TrackErrorOptions
             {
                 Severity = "error",
                 ErrorType = HangErrorType,
                 Handled = false,
-                Properties = new Dictionary<string, object> { ["hang_duration_ms"] = hang.DurationMs },
+                Properties = new Dictionary<string, object> { ["hang_duration_s"] = durationSeconds },
             }, SourceAuto, hang.StartedAt, hang.MessageId);
             if (id != null && _sessionId != "")
             {

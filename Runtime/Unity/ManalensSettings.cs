@@ -41,7 +41,7 @@ namespace ManalensSdk
         [Tooltip("A dedicated server build (UNITY_SERVER, or a player in batch mode) is not a player. Off: it sends no game_open, sessions or crash events. Track() still works.")]
         public bool TrackServerBuilds;
 
-        [Tooltip("Hang detection: send an app_hang error when one frame takes longer than this many seconds. 0 turns it off; other values are clamped to 1 to 60. Default 5.")]
+        [Tooltip("Hang detection: send an game_hang error when one frame takes longer than this many seconds. 0 turns it off; other values are clamped to 1 to 60. Default 5.")]
         [Min(0)]
         public float HangThresholdSeconds = 5;
 

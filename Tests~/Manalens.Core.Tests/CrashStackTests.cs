@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Manalens.Tests
 {
-    /// <summary>Crash stacks (sdks/SPEC.md, P-2831): Unity's own crash data added to app_crash.</summary>
+    /// <summary>Crash stacks (sdks/SPEC.md, P-2831): Unity's own crash data added to game_crash.</summary>
     public class CrashStackTests
     {
         static readonly string[] Homes = { "/Users/alex" };
@@ -170,12 +170,12 @@ Stack Trace of Thread 4322:
         }
 
         [Fact]
-        public void TheNextLaunchAddsTheCrashDataToAppCrash()
+        public void TheNextLaunchAddsTheCrashDataToGameCrash()
         {
             var device = new Device();
             var files = CrashAfter(device, 20);
             CrashThenLaunch(device, files);
-            var crash = device.Transport.AllEvents.Single(e => e.Name() == "app_crash").Props();
+            var crash = device.Transport.AllEvents.Single(e => e.Name() == "game_crash").Props();
             Assert.Equal("SIGSEGV", crash.Str("error_type"));
             Assert.Equal("unity_player_log", crash.Str("crash_source"));
             Assert.StartsWith("UnityEngine.Diagnostics.Utils:ForceCrash\nCrashProbe:Crash", crash.Str("stack"));
@@ -190,7 +190,7 @@ Stack Trace of Thread 4322:
             var device = new Device();
             var files = CrashAfter(device, -3600);
             CrashThenLaunch(device, files);
-            var crash = device.Transport.AllEvents.Single(e => e.Name() == "app_crash").Props();
+            var crash = device.Transport.AllEvents.Single(e => e.Name() == "game_crash").Props();
             Assert.False(crash.TryGetProperty("stack", out _));
             Assert.Equal(0, files.Reads);
         }
@@ -203,13 +203,13 @@ Stack Trace of Thread 4322:
             // so only the saved path and time keep it from being sent again.
             var files = CrashAfter(device, 625.5);
             var second = CrashThenLaunch(device, files);
-            Assert.True(device.Transport.AllEvents.Single(e => e.Name() == "app_crash").Props().TryGetProperty("stack", out _));
+            Assert.True(device.Transport.AllEvents.Single(e => e.Name() == "game_crash").Props().TryGetProperty("stack", out _));
             // The second launch crashes too (a force quit): no new crash data.
             device.Clock.Advance(25);
             second.Update();
             device.Clock.Advance(600);
             device.Launch().Update();
-            var crash = device.Transport.AllEvents.Single(e => e.Name() == "app_crash").Props();
+            var crash = device.Transport.AllEvents.Single(e => e.Name() == "game_crash").Props();
             Assert.False(crash.TryGetProperty("stack", out _));
             Assert.Equal(1, files.Reads);
         }
@@ -220,7 +220,7 @@ Stack Trace of Thread 4322:
             var device = new Device();
             var files = CrashAfter(device, 20);
             CrashThenLaunch(device, files, Device.Options(o => o.CaptureCrashStacks = false));
-            var crash = device.Transport.AllEvents.Single(e => e.Name() == "app_crash").Props();
+            var crash = device.Transport.AllEvents.Single(e => e.Name() == "game_crash").Props();
             Assert.False(crash.TryGetProperty("stack", out _));
             Assert.Equal(0, files.Reads);
         }

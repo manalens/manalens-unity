@@ -30,7 +30,7 @@ namespace ManalensSdk
     /// Reads the crash data that Unity itself wrote when the game crashed. The
     /// SDK installs no crash handler: at the next launch it parses the crash
     /// text and adds stack, error_type, message, fingerprint, crash_source and
-    /// symbolicated to app_crash.
+    /// symbolicated to game_crash.
     /// </summary>
     public static class CrashStacks
     {

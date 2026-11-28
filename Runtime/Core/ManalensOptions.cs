@@ -63,13 +63,13 @@ namespace ManalensSdk
         /// <summary>
         /// Desktop players (Windows, macOS, Linux): at the next launch, add the
         /// crash data that Unity wrote (the crash folder's error.log, or the
-        /// previous Player log) to app_crash: stack, error_type, message,
+        /// previous Player log) to game_crash: stack, error_type, message,
         /// fingerprint, crash_source and symbolicated. No crash handler.
         /// </summary>
         public bool CaptureCrashStacks = true;
         /// <summary>
         /// Hang detection (P-2833): a watchdog thread sends an error with
-        /// error_type app_hang when one frame takes longer than this many
+        /// error_type game_hang when one frame takes longer than this many
         /// seconds (the main thread is stuck). 0 turns it off; other values are
         /// clamped to 1 to 60 s. Not counted while
         /// the game is unfocused or paused, while the editor is paused, while a
@@ -93,7 +93,7 @@ namespace ManalensSdk
         /// <summary>
         /// A dedicated server build (UNITY_SERVER, or a player in batch mode) is
         /// not a player. false (default): on a server build the SDK sends no
-        /// game_open, session_start, session_end or app_crash, so the
+        /// game_open, session_start, session_end or game_crash, so the
         /// server does not count as an install or a session. Track() and
         /// Identify() still work. true: a server build sends them as a client does.
         /// </summary>

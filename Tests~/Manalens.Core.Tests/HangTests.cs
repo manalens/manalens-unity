@@ -7,7 +7,7 @@ namespace Manalens.Tests
 {
     /// <summary>
     /// Hang detection (P-2833): the watchdog sees a stuck main thread, writes the
-    /// hang while it is stuck, and the SDK sends one app_hang error. A crash
+    /// hang while it is stuck, and the SDK sends one game_hang error. A crash
     /// after it links to it with hang_message_id. The tests run the watchdog
     /// checks by hand (CheckHang) with the fake clock, as its thread would.
     /// </summary>
@@ -31,7 +31,7 @@ namespace Manalens.Tests
         }
 
         static JsonElement[] Hangs(Device device) =>
-            device.Transport.AllEvents.Where(e => e.Name() == "error" && e.Props().Str("error_type") == "app_hang").ToArray();
+            device.Transport.AllEvents.Where(e => e.Name() == "error" && e.Props().Str("error_type") == "game_hang").ToArray();
 
         [Fact]
         public void AStuckMainThreadIsWrittenWhileStuckAndSentOnceWhenItRecovers()
@@ -51,7 +51,7 @@ namespace Manalens.Tests
             Assert.Equal("error", props.Str("severity"));
             Assert.Equal("auto", props.Str("source"));
             Assert.False(props.GetProperty("handled").GetBoolean());
-            Assert.Equal(6000, props.GetProperty("hang_duration_ms").GetInt64());
+            Assert.Equal(6.0, props.GetProperty("hang_duration_s").GetDouble());
             Assert.Equal("The main thread was blocked for 6.0 s", props.Str("message"));
             Assert.False(props.TryGetProperty("stack", out _)); // Unity cannot read the main thread stack from another thread.
             Assert.Contains("before_hang", props.Str("breadcrumbs"));
@@ -67,6 +67,19 @@ namespace Manalens.Tests
         }
 
         [Fact]
+        public void HangDurationIsInSecondsWithOneDecimal()
+        {
+            var device = new Device();
+            var client = Warm(device);
+            Stall(device, client, 6.2); // 25 checks of 0.25 s: 6.25 s
+            client.Update();
+            client.SendNow();
+            var props = Assert.Single(Hangs(device)).Props();
+            Assert.Equal(6.3, props.GetProperty("hang_duration_s").GetDouble());
+            Assert.Equal("The main thread was blocked for 6.3 s", props.Str("message"));
+        }
+
+        [Fact]
         public void AGameKilledWhileStuckSendsTheHangAtTheNextLaunchAndTheCrashLinksToIt()
         {
             var device = new Device();
@@ -79,17 +92,17 @@ namespace Manalens.Tests
             var next = device.Launch(Device.Options(o => o.Build = "572"));
             next.Update();
             var hang = Assert.Single(Hangs(device));
-            var crash = device.Transport.AllEvents.Single(e => e.Name() == "app_crash");
+            var crash = device.Transport.AllEvents.Single(e => e.Name() == "game_crash");
             Assert.Equal(hang.Str("message_id"), crash.Props().Str("hang_message_id"));
             Assert.Equal(session, hang.Str("session_id"));
             Assert.Equal(session, crash.Props().Str("previous_session_id"));
             Assert.False(hang.Props().GetProperty("handled").GetBoolean());
             Assert.Equal("error", hang.Props().Str("severity"));
-            Assert.False(hang.Props().TryGetProperty("hang_duration_ms", out _));
+            Assert.False(hang.Props().TryGetProperty("hang_duration_s", out _));
             Assert.Equal("The main thread was blocked for 5.0 s", hang.Props().Str("message")); // The threshold: the hang never ended.
             Assert.Contains("before_hang", hang.Props().Str("breadcrumbs"));
             Assert.Equal("571", hang.GetProperty("context").GetProperty("app").Str("build")); // The build of the run that hung.
-            Assert.Equal(new[] { "error", "app_crash", "session_end", "session_start", "game_open" }, device.Transport.Names);
+            Assert.Equal(new[] { "error", "game_crash", "session_end", "session_start", "game_open" }, device.Transport.Names);
             Assert.False(device.Storage.Blobs.ContainsKey(AnalyticsClient.HangName));
         }
 
@@ -106,7 +119,7 @@ namespace Manalens.Tests
             client.Update(); // A tick saves the session.
             device.Clock.Advance(60);
             device.Launch().Update(); // The process died without OnQuit.
-            var crash = device.Transport.AllEvents.Single(e => e.Name() == "app_crash");
+            var crash = device.Transport.AllEvents.Single(e => e.Name() == "game_crash");
             Assert.Equal(hang.Str("message_id"), crash.Props().Str("hang_message_id"));
         }
 
@@ -119,7 +132,7 @@ namespace Manalens.Tests
             client.Update();
             device.Clock.Advance(60);
             device.Launch().Update();
-            var crash = device.Transport.AllEvents.Single(e => e.Name() == "app_crash");
+            var crash = device.Transport.AllEvents.Single(e => e.Name() == "game_crash");
             Assert.False(crash.Props().TryGetProperty("hang_message_id", out _));
         }
 
@@ -238,7 +251,7 @@ namespace Manalens.Tests
             {
                 o.FlushAt = 50;
                 o.BeforeSend = e => e.TryGetValue("properties", out var p) && p is System.Collections.Generic.Dictionary<string, object> props
-                    && props.TryGetValue("error_type", out var t) && (t as string) == "app_hang" ? null : e;
+                    && props.TryGetValue("error_type", out var t) && (t as string) == "game_hang" ? null : e;
             }));
             Stall(device, client, 6);
             client.Update();

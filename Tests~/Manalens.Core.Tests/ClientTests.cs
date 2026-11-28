@@ -202,7 +202,7 @@ namespace Manalens.Tests
             var open = device.Transport.AllEvents.First(e => e.Name() == "game_open").Props();
             Assert.Equal(JsonValueKind.False, open.GetProperty("is_first_open").ValueKind);
             Assert.Equal("2027-01-15T08:00:00.000Z", open.Str("first_open_at"));
-            Assert.DoesNotContain("app_crash", device.Transport.Names);
+            Assert.DoesNotContain("game_crash", device.Transport.Names);
         }
 
         [Fact]
@@ -858,7 +858,7 @@ namespace Manalens.Tests
             client.Update();
             device.Clock.Advance(60);
             device.Launch(); // The first process was killed; this one is killed too before any save.
-            Assert.Contains("app_crash", device.Storage.Blobs[AnalyticsClient.QueueName]);
+            Assert.Contains("game_crash", device.Storage.Blobs[AnalyticsClient.QueueName]);
         }
 
         [Fact]
@@ -1014,7 +1014,7 @@ namespace Manalens.Tests
         }
 
         [Fact]
-        public void ACrashSendsAppCrashInTheCrashedSessionAtTheNextLaunch()
+        public void ACrashSendsGameCrashInTheCrashedSessionAtTheNextLaunch()
         {
             var device = new Device();
             var crashed = device.Launch();
@@ -1027,7 +1027,7 @@ namespace Manalens.Tests
             var next = device.Launch(Device.Options(o => o.Build = "572"));
             next.Update();
             var events = device.Transport.AllEvents;
-            var crash = events.Single(e => e.Name() == "app_crash");
+            var crash = events.Single(e => e.Name() == "game_crash");
             var end = events.Single(e => e.Name() == "session_end");
             Assert.Equal(crashedSession, crash.Str("session_id"));
             Assert.Equal(crashedSession, crash.Props().Str("previous_session_id"));
@@ -1036,7 +1036,7 @@ namespace Manalens.Tests
             Assert.Equal(crash.Str("original_timestamp"), end.Str("original_timestamp"));
             Assert.Equal("2027-01-15T08:00:25.000Z", end.Str("original_timestamp"));
             Assert.Equal(25, end.Props().GetProperty("duration_s").GetInt64());
-            Assert.Equal(new[] { "app_crash", "session_end", "session_start", "game_open" }, device.Transport.Names);
+            Assert.Equal(new[] { "game_crash", "session_end", "session_start", "game_open" }, device.Transport.Names);
             Assert.NotEqual(crashedSession, next.SessionId);
         }
 
@@ -1053,7 +1053,7 @@ namespace Manalens.Tests
             device.Clock.Advance(600);
             var reloaded = device.Launch(platform: "web");
             reloaded.Update();
-            Assert.DoesNotContain("app_crash", device.Transport.Names);
+            Assert.DoesNotContain("game_crash", device.Transport.Names);
             var end = device.Transport.AllEvents.Single(e => e.Name() == "session_end");
             Assert.Equal(session, end.Str("session_id"));
             Assert.Equal(25, end.Props().GetProperty("duration_s").GetInt64());
@@ -1069,7 +1069,7 @@ namespace Manalens.Tests
             device.Clock.Advance(3600);
             var next = device.Launch();
             next.Update();
-            Assert.DoesNotContain("app_crash", device.Transport.Names);
+            Assert.DoesNotContain("game_crash", device.Transport.Names);
             Assert.Contains("session_end", device.Transport.Names);
         }
 
@@ -1083,7 +1083,7 @@ namespace Manalens.Tests
             Assert.Equal(1, client.QueueSize); // session_end waits on disk for the next launch.
             var next = device.Launch();
             next.Update();
-            Assert.DoesNotContain("app_crash", device.Transport.Names);
+            Assert.DoesNotContain("game_crash", device.Transport.Names);
             Assert.Equal(new[] { "session_end", "session_start", "game_open" }, device.Transport.Names);
         }
     }
@@ -1091,7 +1091,7 @@ namespace Manalens.Tests
     /// <summary>A dedicated server build is not a player (G-2533).</summary>
     public class ServerBuildTests
     {
-        static readonly string[] Automatic = { "game_open", "session_start", "session_end", "app_crash" };
+        static readonly string[] Automatic = { "game_open", "session_start", "session_end", "game_crash" };
 
         /// <summary>Two launches of a server: the first ends without a quit (a crash), the second quits.</summary>
         static List<string> RunServer(Device device, bool trackServerBuilds)
